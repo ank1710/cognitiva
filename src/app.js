@@ -59,6 +59,109 @@ export function optionLabel(text, index) {
   return `Alternativa ${letter}: ${spoken}`;
 }
 
+/* ---------------------------------------------------------------------------
+ * Laudo técnico (F1b)
+ * Funções puras para transformar o schema analysis-2 em dados de exibição.
+ * A interface não recalcula estatística: todo número vem do servidor.
+ * ------------------------------------------------------------------------- */
+const MODE_LABELS = Object.freeze({
+  full: 'Completo',
+  limited: 'Limitado (amostra parcial)',
+  insufficient: 'Amostra insuficiente'
+});
+const METRIC_LABELS = Object.freeze({
+  total: 'total de itens',
+  answered: 'itens respondidos',
+  correct: 'acertos',
+  accuracy: 'acurácia',
+  meanConfidence: 'confiança média',
+  n: 'respostas com confiança'
+});
+
+export function modeLabel(mode) {
+  return MODE_LABELS[mode] || 'Não informado';
+}
+
+/** Traduz um evidenceId do bloco E para texto legível, mantendo o id no title. */
+export function evidenceLabel(id) {
+  const value = String(id ?? '');
+  const global = {
+    'G:answered': 'Questões respondidas na sessão',
+    'G:total': 'Total de questões da sessão',
+    'G:accuracy': 'Acurácia global entre respondidas',
+    'G:meanConfidence': 'Confiança média declarada',
+    'G:brier': 'Brier Score da sessão',
+    'G:gap': 'Diferença confiança × acerto',
+    'S:distinctStructures': 'Estruturas distintas no formulário',
+    'S:parametricShare': 'Proporção de itens paramétricos'
+  }[value];
+  if (global) return global;
+  const dimension = /^D:([^:]+):(.+)$/.exec(value);
+  if (dimension) {
+    const title = DIMENSIONS.find(d => d.id === dimension[1])?.title || dimension[1];
+    return `${METRIC_LABELS[dimension[2]] || dimension[2]} — ${title}`;
+  }
+  const item = /^I:(\d+)$/.exec(value);
+  if (item) return `Questão ${Number(item[1]) + 1}`;
+  const topic = /^T:([^:]+):(.+)$/.exec(value);
+  if (topic) {
+    const metric = topic[2] === 'correct' ? 'acertos' : topic[2] === 'answered' ? 'respondidas' : 'total de itens';
+    return `${metric} — tópico ${topic[1]}`;
+  }
+  return value || 'evidência não informada';
+}
+
+function formatTimestamp(value) {
+  if (typeof value !== 'string' || !value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('pt-BR');
+}
+
+function summaryText(summary) {
+  if (!summary || typeof summary !== 'object') return 'Resumo da sessão não informado.';
+  const accuracy = typeof summary.globalAccuracy === 'number' ? `${Math.round(summary.globalAccuracy * 100)}%` : '—';
+  const tier = { screening: 'Exploratória', standard: 'Intermediária', deep: 'Aprofundada' }[summary.tier] || 'não informada';
+  return `Modalidade: ${tier} · Respondidas: ${summary.answered ?? '—'} de ${summary.total ?? '—'} · Acurácia global: ${accuracy}`;
+}
+
+/** Converte o envelope analysis-2 em uma estrutura pronta para renderização. */
+export function buildAnalysisView(outcome) {
+  const technical = outcome?.technical && typeof outcome.technical === 'object' ? outcome.technical : {};
+  const rawClaims = Array.isArray(technical.claims) ? technical.claims : [];
+  const claims = rawClaims
+    .filter(claim => claim && typeof claim.text === 'string' && claim.text.trim())
+    .map((claim, index) => ({
+      id: typeof claim.id === 'string' && claim.id ? claim.id : `C${index + 1}`,
+      level: claim.level === 'hypothesis' ? 'Hipótese' : 'Fato',
+      levelKey: claim.level === 'hypothesis' ? 'hypothesis' : 'fact',
+      text: claim.text.trim(),
+      dimension: claim.dimension ? (DIMENSIONS.find(d => d.id === claim.dimension)?.title || claim.dimension) : null,
+      evidence: (Array.isArray(claim.evidenceIds) ? claim.evidenceIds : [])
+        .map(id => ({ id: String(id), label: evidenceLabel(id) })),
+      caveat: typeof claim.caveat === 'string' && claim.caveat.trim() ? claim.caveat.trim() : null
+    }));
+  const insufficient = outcome?.mode === 'insufficient'
+    ? 'A sessão tem menos de 10 respostas. Esta análise não faz leitura por dimensão: mostra apenas contagens e limites. Responda mais questões e gere a análise novamente.'
+    : null;
+  return {
+    mode: outcome?.mode || null,
+    modeLabel: modeLabel(outcome?.mode),
+    meta: [
+      { key: 'rubricVersion', label: 'Versão da rubrica', value: outcome?.rubricVersion || '—' },
+      { key: 'promptVersion', label: 'Versão do prompt', value: outcome?.promptVersion || '—' },
+      { key: 'model', label: 'Modelo', value: outcome?.model || '—' },
+      { key: 'generatedAt', label: 'Gerado em', value: formatTimestamp(outcome?.generatedAt) },
+      { key: 'dataFingerprint', label: 'Fingerprint do relatório', value: outcome?.dataFingerprint || '—' },
+      { key: 'mode', label: 'Modo da análise', value: modeLabel(outcome?.mode) }
+    ],
+    summaryText: summaryText(technical.sessionSummary),
+    claims,
+    limitations: (Array.isArray(technical.limitations) ? technical.limitations : []).filter(text => typeof text === 'string' && text.trim()),
+    refused: (Array.isArray(technical.refused) ? technical.refused : []).filter(text => typeof text === 'string' && text.trim()),
+    insufficient
+  };
+}
+
 /** Carrega o catálogo revisado sem nunca rejeitar: arquivo ausente, JSON
  * inválido ou servidor lento caem em lista vazia e a prova segue paramétrica.
  * O timeout curto evita segurar o botão "Começar" indefinidamente. */
@@ -85,6 +188,7 @@ export function initApp() {
   const store = createStore();
   const esc = escapeHtml;
   let tier = 'screening', session = store.readSession(), currentView = 'home', catalog = [];
+  let lastAnalysis = null;
   const catalogReady = loadCatalog();
   catalogReady.then(list => { catalog = list; });
   function notice(message) {const el = $('storageNotice'); if (!el) return; el.textContent = message || ''; el.classList.toggle('hide', !message);}
@@ -221,12 +325,36 @@ export function initApp() {
       return `<details><summary><span class="review-number" aria-hidden="true">${number} · </span>${esc(e.question)} — ${status}</summary><p><strong>Posição:</strong> questão ${i + 1} de ${score.entries.length}</p><p><strong>Contexto:</strong> ${esc(e.context)}</p><p><strong>Resposta:</strong> ${e.selected === null ? '—' : esc(e.options[e.selected])}</p><p><strong>Correta:</strong> ${esc(e.options[e.answer])}</p><p><strong>Explicação:</strong> ${esc(e.explanation)}</p>${e.reasoning ? `<p><strong>Seu raciocínio:</strong> ${esc(e.reasoning)}</p>` : ''}</details>`;
     }).join('');
   }
+  function renderAnalysis(outcome) {
+    const view = buildAnalysisView(outcome);
+    lastAnalysis = outcome;
+    $('aiMeta').innerHTML = view.meta.map(item => `<div class="analysis-meta-row"><dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd></div>`).join('');
+    $('aiSummary').textContent = view.summaryText;
+    $('aiInsufficient').textContent = view.insufficient || '';
+    $('aiInsufficient').classList.toggle('hide', !view.insufficient);
+    $('aiClaims').innerHTML = view.claims.length ? view.claims.map(claim => {
+      const evidence = claim.evidence.map(item => `<span class="analysis-evidence" title="${esc(item.id)}">${esc(item.label)}</span>`).join(' · ');
+      return `<li class="analysis-claim"><p class="analysis-claim-head"><span class="analysis-level ${claim.levelKey}">${claim.level}</span>${claim.dimension ? `<span class="analysis-dimension">Dimensão: ${esc(claim.dimension)}</span>` : ''}<span class="analysis-claim-id">${esc(claim.id)}</span></p><p class="analysis-claim-text">${esc(claim.text)}</p><p class="analysis-evidence-line small muted">Evidência: ${evidence || 'não informada'}</p>${claim.caveat ? `<p class="small muted">${esc(claim.caveat)}</p>` : ''}</li>`;
+    }).join('') : '<li class="small muted">Nenhuma leitura por dimensão foi gerada para esta sessão.</li>';
+    $('aiLimitations').innerHTML = view.limitations.map(text => `<li>${esc(text)}</li>`).join('');
+    $('aiRefused').innerHTML = view.refused.map(text => `<li>${esc(text)}</li>`).join('');
+    $('aiReport').classList.remove('hide');
+    $('analysisDownloadBtn').classList.remove('hide');
+    $('aiReport').focus({preventScroll: true});
+  }
   async function analyze() {
     const btn = $('apiBtn'); btn.disabled = true;
     $('apiStatus').textContent = 'Solicitando análise. Nenhum dado é enviado sem esta ação.';
+    // O fingerprint é calculado no servidor (bloco E + node:crypto). O navegador
+    // não replica essa lógica; por isso expectedFingerprint fica nulo e o valor
+    // devolvido é exibido no laudo, não reenviado.
     const outcome = await requestAnalysis(result());
-    if (outcome.ok) {$('aiResult').textContent = outcome.analysis; $('aiResult').classList.remove('hide'); $('apiStatus').textContent = outcome.message;}
-    else {$('apiStatus').textContent = outcome.message;}
+    if (outcome.ok) {
+      renderAnalysis(outcome);
+      $('apiStatus').textContent = outcome.message;
+    } else {
+      $('apiStatus').textContent = outcome.message;
+    }
     btn.disabled = false;
   }
   $('homeLink').onclick = e => {e.preventDefault(); toHome();};
@@ -246,6 +374,11 @@ export function initApp() {
   $('nextBtn').onclick = () => session.index === session.form.items.length - 1 ? finalize() : move(1);
   $('finishBtn').onclick = finalize; $('pauseBtn').onclick = toHome;
   $('downloadBtn').onclick = () => download(JSON.stringify(result(),null,2), `cognitiva_${session.form.tier}_${Date.now()}.json`);
+  $('analysisDownloadBtn').onclick = () => {
+    if (!lastAnalysis) return;
+    const fingerprint = String(lastAnalysis.dataFingerprint || '').replace(/[^a-z0-9]/gi, '').slice(-16) || String(Date.now());
+    download(JSON.stringify(lastAnalysis, null, 2), `analysis-${fingerprint}.json`);
+  };
   $('copyBtn').onclick = async () => {try {await navigator.clipboard.writeText(prompt()); alert('Relatório copiado. Cole em uma conversa com o ChatGPT.')} catch {download(prompt(), 'cognitiva_prompt.txt', 'text/plain')}};
   $('apiBtn').onclick = analyze;
   $('againBtn').onclick = () => {session = null; store.clearSession(); toHome();};
