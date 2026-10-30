@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#101b31" />
+<meta name="description" content="Cognitiva: explore raciocínio em desafios multitemáticos, com análise de confiança e relatórios." />
+<title>Cognitiva — Laboratório de Raciocínio</title>
+<link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+<header class="topbar"><a href="#" id="homeLink" class="brand"><span class="brand-mark">✳</span><span class="brand-name">cognitiva<span class="brand-sub">Laboratório de raciocínio</span></span></a><div class="header-right"><span class="top-chip"><span class="dot"></span> Dados locais</span><button id="privacyBtn" class="mini-btn">Privacidade</button></div></header>
+<main class="shell">
+<section id="homeView">
+  <div class="hero"><div class="hero-copy"><div class="eyebrow">Explore a forma como você pensa</div><h1>Seu raciocínio,<br><span style="color:var(--blue)">em perspectiva.</span></h1><p class="lead">Um laboratório de desafios que explora diferentes habilidades cognitivas, sem depender da sua profissão ou dos seus interesses pessoais.</p><div class="tag-row"><span class="pill-soft">Multitemático</span><span class="pill-soft">Formulários variáveis</span><span class="pill-soft">Confiança & calibração</span></div></div><div class="art" aria-hidden="true"><div class="art-grid"></div><div class="art-title">Cognitive patterns / 002</div><div class="orb-wrap"><div class="orb"><i class="orb-ring one"></i><i class="orb-ring two"></i><i class="orb-ring three"></i><i class="orb-dot a"></i><i class="orb-dot b"></i><i class="orb-dot c"></i><span class="orb-core">✳</span></div></div><div class="art-foot"><span>OBSERVE · REASON · REVISE</span><span>20 / 60 / 120</span></div></div></div>
+  <div class="section-head"><h2>Escolha sua experiência</h2><span class="muted small">Você pode começar pela mais curta</span></div>
+  <div class="tier-wrap" role="group" aria-label="Modalidade de avaliação">
+    <button class="tier-card" data-tier="screening" aria-pressed="true"><strong>Exploratória</strong><div>20 questões</div><small>Triagem breve, sem conclusões por habilidade.</small></button>
+    <button class="tier-card" data-tier="standard" aria-pressed="false"><strong>Intermediária</strong><div>60 questões</div><small>Mais diversidade de exercícios e consistência.</small></button>
+    <button class="tier-card" data-tier="deep" aria-pressed="false"><strong>Aprofundada</strong><div>120 questões</div><small>Sessão longa e experimental; pode ser pausada.</small></button>
+  </div>
+  <div class="notice">Esta ferramenta é educacional e exploratória. Não é um teste de QI validado e não estima inteligência por percentis. O banco atual ainda tem famílias parametrizadas repetidas: quantidade não equivale à precisão psicométrica.</div>
+  <div class="form-actions"><button class="btn btn-primary" id="startBtn">Começar avaliação ↗</button><button class="btn btn-outline hide" id="resumeBtn">Retomar sessão →</button></div>
+  <div class="section-head"><h2>Dimensões exploradas</h2><span class="muted small">Metacognição é medida em todas elas</span></div>
+  <div class="domain-grid" id="dimensionCards"></div>
+  <div class="form-section"><div class="info-line"><h3>Histórico neste navegador</h3><button class="mini-btn" id="deleteBtn">Apagar meus dados</button></div><div id="historyList" class="muted small"></div></div>
+</section>
+<section id="examView" class="hide assessment-shell">
+  <div class="eyebrow">Avaliação em andamento</div><div class="info-line"><h2>Um problema de cada vez.</h2><span class="pill-soft" id="tierLabel"></span></div><div class="info-line"><span class="muted small" id="progressLabel"></span><span class="muted small" id="topicLabel"></span></div><div class="progress-track-v2"><div class="progress-fill-v2" id="progressFill" style="width:0"></div></div>
+  <div class="q-card"><div class="info-line"><span class="pill-soft" id="questionDimension"></span><span class="muted small" id="questionNumber"></span></div><h2 id="questionTitle" style="margin-top:25px"></h2><div id="questionContext" class="q-context-v2 hide"></div><div id="optionList" aria-label="Alternativas"></div>
+   <div class="confidence-box"><div class="confidence-row"><strong>Qual sua confiança nessa resposta?</strong><span id="confidenceText" class="confidence-value">Não informada</span></div><input id="confidenceInput" type="range" min="0" max="100" value="50" step="5" aria-label="Confiança de zero a cem por cento"/><div class="info-line tiny"><span>Incerteza alta</span><span>Certeza alta</span></div><p class="tiny" style="margin:8px 0 0">O valor não será registrado até você mover o controle.</p></div>
+   <label for="notes" class="bold small">Qual foi seu raciocínio? <span class="muted">(opcional)</span></label><textarea id="notes" class="user-notes" maxlength="600" placeholder="Registre sua estratégia, hipóteses ou dúvidas..."></textarea>
+   <div class="form-actions" style="justify-content:space-between"><button class="btn btn-outline" id="prevBtn">← Anterior</button><button class="btn btn-primary" id="nextBtn">Próxima →</button></div>
+   <div class="form-actions"><button class="mini-btn" id="pauseBtn">Pausar e voltar ao início</button><button class="mini-btn" id="finishBtn">Concluir agora</button></div>
+  </div>
+</section>
+<section id="resultView" class="hide">
+  <div class="results-hero"><div><div class="eyebrow" style="color:#b2befa">Relatório de sessão</div><h1>Um mapa das<br>suas decisões.</h1><p>Resultados desta sessão, com acertos e confiança. Não são estimativas padronizadas de inteligência.</p></div><div class="score-badge"><strong id="resultScore">—</strong><span>ACERTOS</span></div></div>
+  <div class="results-stat-grid" id="statGrid"></div>
+  <div class="result-grid" style="margin-top:20px"><div class="result-box"><h3>Acertos por dimensão</h3><p class="small muted">Descritivo: não permite comparação populacional</p><div id="domainGraph"></div></div><div class="result-box"><h3>Confiança e calibração</h3><div id="confidenceSummary"></div><p class="small muted">A confiança é uma estimativa subjetiva. Amostras pequenas variam muito.</p></div></div>
+  <div class="form-section"><h3>Revise seus raciocínios</h3><div class="review" id="reviewList"></div></div>
+  <div class="form-section"><h3>Leve os resultados para análise por IA</h3><p class="muted small">O aplicativo calcula acertos localmente. A IA pode interpretar justificativas, padrões e limitações, sem emitir QI ou diagnósticos.</p><div class="form-actions"><button id="downloadBtn" class="btn btn-outline">Baixar JSON ↓</button><button id="copyBtn" class="btn btn-primary">Copiar análise para ChatGPT ↗</button><button id="apiBtn" class="btn btn-dark">Analisar via API ✧</button></div><p id="apiStatus" class="muted small" role="status">A análise automática exige backend publicado com uma chave de API segura.</p><pre class="explanation hide" id="aiResult"></pre></div>
+  <div class="form-actions"><button id="againBtn" class="btn btn-primary">Nova avaliação ↻</button></div>
+</section>
+</main>
+<script type="module" src="/src/app.js"></script>
+</body>
+</html>
