@@ -34,3 +34,35 @@ test('histórico de exposição reduz repetição em novas provas',()=>{
  const second=buildForm({tier:'screening',seed:11,seen});
  assert.equal(second.items.filter(q=>seen.includes(q.id)).length,0);
 });
+test('gap usa só respostas com confiança e mantém acurácia global separada',()=>{
+ const form=buildForm({seed:4});const [q1,q2,q3]=form.items;
+ const s=grade(form,{[q1.id]:{choice:q1.answer,confidence:80},[q2.id]:{choice:(q2.answer+1)%4,confidence:40},[q3.id]:{choice:(q3.answer+1)%4}});
+ assert.equal(s.answered,3);assert.equal(s.correct,1);assert.ok(Math.abs(s.accuracy-1/3)<1e-10);
+ assert.equal(s.meanConfidence,60);assert.equal(s.confidenceGap,10);
+});
+test('sem confiança marcada o gap é null, com ou sem respostas',()=>{
+ const form=buildForm({seed:4});const [q1,q2]=form.items;
+ const vazio=grade(form,{});assert.equal(vazio.meanConfidence,null);assert.equal(vazio.confidenceGap,null);
+ const semConf=grade(form,{[q1.id]:{choice:q1.answer},[q2.id]:{choice:(q2.answer+1)%4}});
+ assert.equal(semConf.answered,2);assert.equal(semConf.meanConfidence,null);assert.equal(semConf.confidenceGap,null);
+});
+test('confiança sem escolha marcada não entra na amostra do gap',()=>{
+ const form=buildForm({seed:4});const [q1,q2]=form.items;
+ const s=grade(form,{[q1.id]:{confidence:90},[q2.id]:{choice:q2.answer,confidence:50}});
+ assert.equal(s.answered,1);assert.equal(s.meanConfidence,50);assert.equal(s.confidenceGap,-50);
+});
+test('com confiança em todas as respostas o gap é o anterior',()=>{
+ const form=buildForm({seed:4});const answers={};
+ form.items.forEach((q,i)=>answers[q.id]={choice:i%3?q.answer:(q.answer+1)%4,confidence:40+i*3});
+ const s=grade(form,answers);
+ assert.equal(s.answered,form.items.length);
+ assert.ok(Math.abs(s.confidenceGap-(s.meanConfidence-100*s.accuracy))<1e-10);
+});
+test('gap corrigido não altera acurácia, Brier nem dimensões e vai para a exportação',()=>{
+ const form=buildForm({seed:4});const [q1,q2]=form.items;
+ const answers={[q1.id]:{choice:q1.answer,confidence:100},[q2.id]:{choice:(q2.answer+1)%4}};
+ const s=grade(form,answers);const report=exportReport(form,answers,'2026-10-30T12:00:00Z','2026-10-30T12:10:00Z');
+ assert.equal(s.confidenceGap,0);assert.equal(report.summary.confidenceAccuracyGapPoints,s.confidenceGap);
+ assert.equal(report.summary.accuracy,s.accuracy);assert.equal(report.summary.brierScore,s.brier);
+ assert.deepEqual(report.summary.byDomain,s.byDomain);
+});
