@@ -1,5 +1,5 @@
 import {VERSION,TIERS,DIMENSIONS,buildForm,grade,exportReport} from './engine.js';
-import {requestAnalysis} from './analysis.js';
+import {requestAnalysis, withoutReasoning} from './analysis.js';
 import {createStore,KEYS} from './storage.js';
 
 /* ---------------------------------------------------------------------------
@@ -162,6 +162,44 @@ export function buildAnalysisView(outcome) {
   };
 }
 
+/** Versão vigente do texto de opt-in. Espelha CONSENT_TEXT_VERSION do
+ * analyze-core (o módulo do servidor usa node:crypto e não é importável no
+ * navegador). Deve ser atualizada junto com o texto de index.html. */
+export const CONSENT_TEXT_VERSION = 'consent-1.0.0';
+export const PREVIEW_LABEL = 'Prévia interna — não é devolutiva oficial';
+
+/** Converte o participant devolvido pelo servidor em dados de exibição.
+ * F3 não está implementada: a UI nunca trata a saída como devolutiva oficial,
+ * mesmo que o campo venha com outro releaseStatus. */
+export function buildParticipantView(outcome) {
+  const participant = outcome?.participant;
+  if (!participant || typeof participant !== 'object') return null;
+  const sections = (Array.isArray(participant.sections) ? participant.sections : [])
+    .filter(section => section && typeof section.text === 'string' && section.text.trim())
+    .map(section => ({
+      title: typeof section.title === 'string' && section.title.trim() ? section.title.trim() : 'Resumo',
+      text: section.text.trim(),
+      sourceClaimIds: Array.isArray(section.sourceClaimIds) ? section.sourceClaimIds.map(String) : []
+    }));
+  const exercises = (Array.isArray(participant.exercises) ? participant.exercises : [])
+    .filter(exercise => exercise && typeof exercise.text === 'string' && exercise.text.trim())
+    .map(exercise => ({
+      text: exercise.text.trim(),
+      dimension: typeof exercise.targetsDimension === 'string'
+        ? (DIMENSIONS.find(d => d.id === exercise.targetsDimension)?.title || exercise.targetsDimension)
+        : null,
+      why: typeof exercise.why === 'string' && exercise.why.trim() ? exercise.why.trim() : null,
+      sourceClaimIds: Array.isArray(exercise.sourceClaimIds) ? exercise.sourceClaimIds.map(String) : []
+    }));
+  return {
+    badge: PREVIEW_LABEL,
+    releaseStatus: participant.releaseStatus || 'blocked',
+    sections,
+    exercises,
+    closing: typeof participant.closing === 'string' && participant.closing.trim() ? participant.closing.trim() : PREVIEW_LABEL
+  };
+}
+
 /** Carrega o catálogo revisado sem nunca rejeitar: arquivo ausente, JSON
  * inválido ou servidor lento caem em lista vazia e a prova segue paramétrica.
  * O timeout curto evita segurar o botão "Começar" indefinidamente. */
@@ -309,7 +347,12 @@ export function initApp() {
   }
   function result() {return exportReport(session.form, session.answers, session.startedAt, session.finishedAt);}
   function download(text, name, type = 'application/json') {const blob = new Blob([text], {type}); const url = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = url; el.download = name; el.click(); setTimeout(() => URL.revokeObjectURL(url), 500);}
-  function prompt() {return `Analise este resultado exploratório do Cognitiva. É uma bateria NÃO padronizada, sem comparações populacionais ou estimativa de QI. Use apenas os dados fornecidos; não infira diagnósticos, percentis nem superioridade intelectual. Identifique padrões observados, explique calibração e limitações do banco (famílias paramétricas podem se repetir), compare confiança e acertos e proponha exercícios. Se as justificativas contradisserem a escolha, sinalize a ambiguidade.\n\n${JSON.stringify(result(),null,2)}`;}
+  function prompt() {
+    // O mesmo opt-in vale para o caminho de copiar: sem autorização, o texto
+    // livre não entra no prompt que a pessoa vai colar em outro serviço.
+    const data = $('reasoningConsent')?.checked ? result() : withoutReasoning(result());
+    return `Analise este resultado exploratório do Cognitiva. É uma bateria NÃO padronizada, sem comparações populacionais ou estimativa de QI. Use apenas os dados fornecidos; não infira diagnósticos, percentis nem superioridade intelectual. Identifique padrões observados, explique calibração e limitações do banco (famílias paramétricas podem se repetir), compare confiança e acertos e proponha exercícios. Se as justificativas contradisserem a escolha, sinalize a ambiguidade.\n\n${JSON.stringify(data,null,2)}`;
+  }
   function renderResults() {
     const score = grade(session.form, session.answers), total = session.form.items.length;
     $('resultScore').textContent = `${score.correct}/${total}`;
@@ -324,6 +367,23 @@ export function initApp() {
       const status = e.selected === null ? 'Não respondida' : e.correct ? 'Correta' : 'Incorreta';
       return `<details><summary><span class="review-number" aria-hidden="true">${number} · </span>${esc(e.question)} — ${status}</summary><p><strong>Posição:</strong> questão ${i + 1} de ${score.entries.length}</p><p><strong>Contexto:</strong> ${esc(e.context)}</p><p><strong>Resposta:</strong> ${e.selected === null ? '—' : esc(e.options[e.selected])}</p><p><strong>Correta:</strong> ${esc(e.options[e.answer])}</p><p><strong>Explicação:</strong> ${esc(e.explanation)}</p>${e.reasoning ? `<p><strong>Seu raciocínio:</strong> ${esc(e.reasoning)}</p>` : ''}</details>`;
     }).join('');
+  }
+  function renderParticipant(outcome) {
+    const view = buildParticipantView(outcome);
+    if (!view) {
+      $('aiParticipant').classList.add('hide');
+      return false;
+    }
+    $('aiParticipantBadge').textContent = view.badge;
+    $('aiParticipantSections').innerHTML = view.sections.length
+      ? view.sections.map(section => `<div class="participant-section"><h4 class="analysis-subtitle">${esc(section.title)}</h4><p>${esc(section.text)}</p></div>`).join('')
+      : '<p class="small muted">Nenhuma seção foi gerada para esta prévia.</p>';
+    $('aiExercises').innerHTML = view.exercises.length
+      ? view.exercises.map(exercise => `<li>${esc(exercise.text)}${exercise.dimension ? ` <span class="participant-dimension">Dimensão de destino: ${esc(exercise.dimension)}</span>` : ''}${exercise.why ? `<span class="participant-why"> ${esc(exercise.why)}</span>` : ''}</li>`).join('')
+      : '<li class="small muted">Nenhum exercício foi descrito nesta prévia.</li>';
+    $('aiParticipantClosing').textContent = view.closing;
+    $('aiParticipant').classList.remove('hide');
+    return true;
   }
   function renderAnalysis(outcome) {
     const view = buildAnalysisView(outcome);
@@ -340,20 +400,32 @@ export function initApp() {
     $('aiRefused').innerHTML = view.refused.map(text => `<li>${esc(text)}</li>`).join('');
     $('aiReport').classList.remove('hide');
     $('analysisDownloadBtn').classList.remove('hide');
-    $('aiReport').focus({preventScroll: true});
+    // A prévia é o artefato novo; se existir, o foco vai para ela e o laudo
+    // continua imediatamente acima, na mesma região.
+    const hasParticipant = renderParticipant(outcome);
+    (hasParticipant ? $('aiParticipant') : $('aiReport')).focus({preventScroll: true});
   }
   async function analyze() {
-    const btn = $('apiBtn'); btn.disabled = true;
-    $('apiStatus').textContent = 'Solicitando análise. Nenhum dado é enviado sem esta ação.';
+    const btn = $('apiBtn');
+    const authorized = Boolean($('reasoningConsent')?.checked);
+    btn.disabled = true;
+    $('apiStatus').textContent = authorized
+      ? 'Solicitando análise com seus comentários autorizados. Nenhum dado é enviado sem esta ação.'
+      : 'Solicitando análise sem enviar seus comentários. Nenhum dado é enviado sem esta ação.';
     // O fingerprint é calculado no servidor (bloco E + node:crypto). O navegador
     // não replica essa lógica; por isso expectedFingerprint fica nulo e o valor
     // devolvido é exibido no laudo, não reenviado.
-    const outcome = await requestAnalysis(result());
+    const outcome = await requestAnalysis(result(), {
+      reasoningAuthorized: authorized,
+      consentTextVersion: authorized ? CONSENT_TEXT_VERSION : null
+    });
     if (outcome.ok) {
       renderAnalysis(outcome);
       $('apiStatus').textContent = outcome.message;
     } else {
-      $('apiStatus').textContent = outcome.message;
+      $('apiStatus').textContent = outcome.code === 'consent-invalid'
+        ? `${outcome.message} Você pode desmarcar a autorização e tentar de novo; o resultado continua salvo.`
+        : outcome.message;
     }
     btn.disabled = false;
   }
@@ -381,6 +453,14 @@ export function initApp() {
   };
   $('copyBtn').onclick = async () => {try {await navigator.clipboard.writeText(prompt()); alert('Relatório copiado. Cole em uma conversa com o ChatGPT.')} catch {download(prompt(), 'cognitiva_prompt.txt', 'text/plain')}};
   $('apiBtn').onclick = analyze;
+  const consentVersionLabel = $('consentVersionLabel');
+  if (consentVersionLabel) consentVersionLabel.textContent = CONSENT_TEXT_VERSION;
+  $('reasoningConsent').onchange = () => {
+    const authorized = $('reasoningConsent').checked;
+    $('consentState').textContent = authorized
+      ? 'Seus comentários serão enviados ao provedor apenas nesta análise.'
+      : 'Sem autorização, seus comentários não são enviados ao servidor de análise.';
+  };
   $('againBtn').onclick = () => {session = null; store.clearSession(); toHome();};
   $('privacyBtn').onclick = () => alert('Os resultados e as questões vistas ficam neste navegador (localStorage). Nenhum resultado é enviado automaticamente. A análise via API só envia dados quando você confirma pelo botão. Para remover dados, use Apagar meus dados.');
   $('deleteBtn').onclick = () => {

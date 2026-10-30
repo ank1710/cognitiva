@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadCatalog, buildAnalysisView, evidenceLabel, modeLabel } from '../src/app.js';
+import { loadCatalog, buildAnalysisView, buildParticipantView, evidenceLabel, modeLabel, CONSENT_TEXT_VERSION, PREVIEW_LABEL } from '../src/app.js';
 
 const response = body => ({ ok: true, json: async () => body });
 
@@ -88,4 +88,47 @@ test('ids de evidência viram texto legível sem perder o id original', () => {
   assert.equal(evidenceLabel('desconhecido'), 'desconhecido');
   assert.equal(modeLabel('full'), 'Completo');
   assert.equal(modeLabel('insufficient'), 'Amostra insuficiente');
+});
+
+const participantOutcome = (overrides = {}) => ({
+  participant: {
+    audience: 'participant',
+    releaseStatus: 'blocked',
+    signedBy: null,
+    derivedFromClaims: ['C1'],
+    sections: [
+      { title: 'O que esta sessão mostrou', text: 'Acertou 3 de 4 itens de raciocínio quantitativo.', sourceClaimIds: ['C1'] }
+    ],
+    exercises: [
+      { text: 'Descrever um problema de proporção em voz alta.', targetsDimension: 'quant', why: 'Descreve um exercício de prática.', sourceClaimIds: ['C1'] }
+    ],
+    closing: 'prévia interna — não é avaliação clínica nem devolutiva oficial',
+    ...overrides
+  }
+});
+
+test('devolutiva em prévia mantém rótulo e separa seções e exercícios', () => {
+  const view = buildParticipantView(participantOutcome());
+  assert.equal(view.badge, PREVIEW_LABEL);
+  assert.match(view.badge, /Prévia interna/);
+  assert.equal(view.sections.length, 1);
+  assert.equal(view.sections[0].title, 'O que esta sessão mostrou');
+  assert.equal(view.exercises.length, 1);
+  assert.equal(view.exercises[0].dimension, 'Raciocínio quantitativo');
+  assert.equal(view.exercises[0].why, 'Descreve um exercício de prática.');
+  assert.match(view.closing, /não é avaliação clínica/);
+});
+
+test('a UI nunca promove a devolutiva a oficial (F3 fora de escopo)', () => {
+  const view = buildParticipantView(participantOutcome({ releaseStatus: 'ready', signedBy: 'Dra. Exemplo' }));
+  assert.equal(view.badge, PREVIEW_LABEL);
+});
+
+test('sem participant não há seção de devolutiva', () => {
+  assert.equal(buildParticipantView({ technical: {} }), null);
+  assert.equal(buildParticipantView(null), null);
+});
+
+test('a versão do consentimento na UI espelha consent-1.0.0', () => {
+  assert.equal(CONSENT_TEXT_VERSION, 'consent-1.0.0');
 });

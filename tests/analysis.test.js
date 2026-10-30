@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { requestAnalysis, ANALYSIS_MESSAGES } from '../src/analysis.js';
+import { requestAnalysis, withoutReasoning, ANALYSIS_MESSAGES } from '../src/analysis.js';
 
 const fakeResponse = (status, body) => ({
   ok: status >= 200 && status < 300,
@@ -170,4 +170,58 @@ test('sem fetch ou com relatório inválido não tenta enviar', async () => {
   assert.equal(missing.code, 'unsupported');
   const invalid = await requestAnalysis(null, { fetchImpl: async () => fakeResponse(200, envelope()) });
   assert.equal(invalid.code, 'invalid-payload');
+});
+
+test('opt-in de justificativas viaja no corpo com a versão vigente', async () => {
+  let sent = null;
+  await requestAnalysis(report, {
+    reasoningAuthorized: true,
+    consentTextVersion: 'consent-1.0.0',
+    fetchImpl: async (url, options) => {
+      sent = JSON.parse(options.body);
+      return fakeResponse(200, envelope());
+    }
+  });
+  assert.equal(sent.reasoningAuthorized, true);
+  assert.equal(sent.consentTextVersion, 'consent-1.0.0');
+});
+
+test('sem opt-in o corpo declara reasoningAuthorized false e remove o texto livre', async () => {
+  const withReasoning = {
+    ...report,
+    responses: [{ id: 'x', reasoning: 'Meu nome é Fulano e estudo na escola X.' }]
+  };
+  let sent = null;
+  await requestAnalysis(withReasoning, {
+    fetchImpl: async (url, options) => {
+      sent = JSON.parse(options.body);
+      return fakeResponse(200, envelope());
+    }
+  });
+  assert.equal(sent.reasoningAuthorized, false);
+  assert.equal(sent.consentTextVersion, null);
+  assert.equal('reasoning' in sent.results.responses[0], false);
+  assert.doesNotMatch(JSON.stringify(sent), /Fulano/);
+});
+
+test('withoutReasoning não altera o relatório original', () => {
+  const original = { ...report, responses: [{ id: 'x', reasoning: 'texto', confidence: 80 }] };
+  const clean = withoutReasoning(original);
+  assert.equal(clean.responses[0].reasoning, undefined);
+  assert.equal(clean.responses[0].confidence, 80);
+  assert.equal(original.responses[0].reasoning, 'texto');
+});
+
+test('com opt-in o texto livre é enviado no corpo', async () => {
+  const withReasoning = { ...report, responses: [{ id: 'x', reasoning: 'texto autorizado' }] };
+  let sent = null;
+  await requestAnalysis(withReasoning, {
+    reasoningAuthorized: true,
+    consentTextVersion: 'consent-1.0.0',
+    fetchImpl: async (url, options) => {
+      sent = JSON.parse(options.body);
+      return fakeResponse(200, envelope());
+    }
+  });
+  assert.match(JSON.stringify(sent), /texto autorizado/);
 });

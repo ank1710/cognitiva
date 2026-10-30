@@ -185,3 +185,29 @@ test('download da análise é um botão explícito e começa oculto', () => {
 test('foco do laudo é visível no CSS', () => {
   assert.match(css, /\.analysis-report:focus\{outline:3px solid #2f4bd8/);
 });
+
+/* ------------------------------------------------- opt-in e prévia (T012) */
+test('checkbox de justificativas tem label, descrição e versão visível', () => {
+  assert.match(html, /<label class="consent-check" for="reasoningConsent"><input type="checkbox" id="reasoningConsent"/);
+  assert.match(html, /id="reasoningConsent"[^>]*aria-describedby="reasoningConsentHelp"/);
+  assert.match(html, /id="reasoningConsentHelp"/);
+  assert.match(html, /Versão do consentimento: <span id="consentVersionLabel">consent-1\.0\.0<\/span>/);
+  assert.match(html, /id="consentState"[^>]*role="status"[^>]*aria-live="polite"/);
+});
+
+test('checkbox começa desmarcado', () => {
+  const input = html.match(/<input[^>]*id="reasoningConsent"[^>]*>/)?.[0] || '';
+  assert.doesNotMatch(input, /\bchecked\b/);
+});
+
+test('prévia da devolutiva é região separada, rotulada e focável', () => {
+  assert.match(html, /<section id="aiParticipant"[^>]*tabindex="-1"[^>]*aria-labelledby="aiParticipantTitle"/);
+  assert.match(html, /Prévia interna — não é devolutiva oficial/);
+  assert.match(html, /<ul id="aiExercises"[^>]*aria-labelledby="aiExercisesTitle"/);
+  assert.match(html, /id="aiParticipantClosing"/);
+});
+
+test('foco da prévia é visível no CSS e alvo do checkbox tem 44 px', () => {
+  assert.match(css, /\.analysis-report:focus\{outline:3px solid #2f4bd8/);
+  assert.match(css, /\.consent-check\{[^}]*min-height:44px/);
+});
