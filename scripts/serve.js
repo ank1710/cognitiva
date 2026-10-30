@@ -65,7 +65,7 @@ async function handleAnalyze(req, res) {
   if (!apiKey) {
     return sendJson(res, 503, { error: UNCONFIGURED_MESSAGE, fallback: 'copy-prompt' });
   }
-  const { status, body } = await analyzeResults(parsed.value, { apiKey, model: process.env.OPENAI_MODEL || 'gpt-5-mini' });
+  const { status, body } = await analyzeResults(parsed.value, { apiKey, model: process.env.OPENAI_MODEL || 'gpt-5-mini', expectedFingerprint: parsed.value?.dataFingerprint });
   return sendJson(res, status, body);
 }
 

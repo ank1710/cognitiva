@@ -96,3 +96,22 @@ test('id repetido em domínios diferentes fica uma vez só, mantendo a primeira 
   assert.equal(same[0].domain, 'fluid');
   assert.equal(new Set(form.items.map(item => item.id)).size, 20);
 });
+
+test('exportReport inclui origem, estrutura e revisão por item', () => {
+  const base = { ...curatedItem('CUR-1', 'fluid'), templateId: 'familia-revisada' };
+  const form = buildForm({ tier: 'screening', seed: 21, catalog: [base] });
+  const answer = { choice: form.items[0].answer, confidence: 70 };
+  const report = exportReport(form, { [form.items[0].id]: answer }, '2026-10-30T12:00:00Z', '2026-10-30T12:10:00Z');
+  assert.equal(report.responses.length, 20);
+  const curated = report.responses.find(item => item.id === 'CUR-1');
+  assert.equal(curated.origin, 'curated');
+  assert.equal(curated.familyId, 'familia-revisada');
+  assert.equal(curated.structureId, 'familia-revisada');
+  assert.equal(curated.contentReviewStatus, 'passed');
+  const parametric = report.responses.find(item => item.origin === 'parametric');
+  assert.equal(parametric.contentReviewStatus, 'not-reviewed');
+  assert.equal(typeof parametric.familyId, 'string');
+  assert.equal(parametric.structureId, parametric.familyId);
+  assert.ok(Number.isInteger(curated.selectedIndex) || curated.selectedIndex === null);
+  assert.ok(Number.isInteger(parametric.correctIndex));
+});
