@@ -73,3 +73,31 @@ input[type=range]{min-height:44px}
   .skip-link{transition:none}
   .grid-cell{transition:none}
 }
+
+/* v4 laudo técnico (T010) */
+.analysis-notice{background:#f4f6fb;border:1px solid #dfe4ef;border-left:4px solid #2f4bd8;border-radius:10px;padding:12px 15px;font-size:12px;line-height:1.6;color:var(--ink);margin:12px 0 4px}
+.analysis-report{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin-top:18px;box-shadow:var(--shadow)}
+.analysis-report:focus{outline:3px solid #2f4bd8;outline-offset:3px}
+.analysis-report h3{margin:0 0 8px;font-size:20px}
+.analysis-subtitle{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--slate);margin:22px 0 8px}
+.analysis-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:0}
+.analysis-meta-row{background:#f8f9fc;border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-width:0}
+.analysis-meta dt{font-size:11px;color:var(--slate)}
+.analysis-meta dd{margin:2px 0 0;font-size:13px;font-weight:650;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.analysis-claims{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:12px}
+.analysis-claim{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fbfcff}
+.analysis-claim p{margin:0 0 6px}
+.analysis-claim p:last-child{margin-bottom:0}
+.analysis-claim-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.analysis-level{font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;border-radius:50px;padding:3px 9px}
+.analysis-level.fact{background:#e7f0ff;color:#1a3f93}
+.analysis-level.hypothesis{background:#fff4e2;color:#8a4d00}
+.analysis-dimension{font-size:12px;color:var(--slate)}
+.analysis-claim-id{margin-left:auto;font-size:11px;color:var(--slate);font-variant-numeric:tabular-nums}
+.analysis-claim-text{font-size:14px;color:var(--ink);line-height:1.6}
+.analysis-evidence-line{line-height:1.7}
+.analysis-evidence{display:inline-block;background:#eef1f8;border-radius:6px;padding:1px 7px;margin:1px 0}
+.analysis-list{margin:0;padding-left:22px;font-size:13px;line-height:1.7;color:var(--ink)}
+.analysis-list li{margin-bottom:4px}
+.analysis-insufficient{background:#fff4e2;border:1px solid #f0d3a6;border-radius:10px;padding:12px 15px;font-size:13px;line-height:1.6;color:#6b3a00;margin:12px 0}
+@media(max-width:420px){.analysis-report{padding:16px}.analysis-meta{grid-template-columns:1fr}}

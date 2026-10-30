@@ -160,3 +160,28 @@ test('layout estreito tem ponto de quebra em 360 px sem rolagem horizontal', () 
 test('prefers-reduced-motion desativa transições e animações', () => {
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*transition:none!important[\s\S]*animation:none!important/);
 });
+
+/* ------------------------------------------------- laudo técnico (T010) */
+test('região do laudo é rotulada e focável, com listas semânticas', () => {
+  assert.match(html, /<section id="aiReport"[^>]*tabindex="-1"[^>]*aria-labelledby="aiReportTitle"/);
+  assert.match(html, /<h3 id="aiReportTitle">Laudo técnico<\/h3>/);
+  assert.match(html, /<ol id="aiClaims"[^>]*aria-labelledby="aiClaimsTitle"/);
+  assert.match(html, /<ul id="aiLimitations"[^>]*aria-labelledby="aiLimitationsTitle"/);
+  assert.match(html, /<ul id="aiRefused"[^>]*aria-labelledby="aiRefusedTitle"/);
+  assert.match(html, /<dl class="analysis-meta" id="aiMeta"/);
+});
+
+test('laudo declara audiência de pesquisa e limites clínicos', () => {
+  assert.match(html, /Laudo técnico para pesquisa/);
+  assert.match(html, /Audiência de pesquisa/);
+  assert.match(html, /Não é avaliação clínica e não estima QI, percentil ou diagnóstico/);
+});
+
+test('download da análise é um botão explícito e começa oculto', () => {
+  assert.match(html, /<button id="analysisDownloadBtn"[^>]*type="button"[^>]*>Baixar análise JSON ↓<\/button>/);
+  assert.match(html, /id="analysisDownloadBtn"[^>]*class="[^"]*hide/);
+});
+
+test('foco do laudo é visível no CSS', () => {
+  assert.match(css, /\.analysis-report:focus\{outline:3px solid #2f4bd8/);
+});

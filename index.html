@@ -45,7 +45,23 @@
   <div class="results-stat-grid" id="statGrid" role="group" aria-label="Resumo da sessão"></div>
   <div class="result-grid" style="margin-top:20px"><div class="result-box"><h2 class="h3">Acertos por dimensão</h2><p class="small muted">Descritivo: não permite comparação populacional</p><div id="domainGraph"></div></div><div class="result-box"><h2 class="h3">Confiança e calibração</h2><div id="confidenceSummary"></div><p class="small muted">A confiança é uma estimativa subjetiva. Amostras pequenas variam muito.</p></div></div>
   <div class="form-section"><h2 class="h3">Revise seus raciocínios</h2><div class="review" id="reviewList" aria-label="Revisão das questões da sessão"></div></div>
-  <div class="form-section"><h2 class="h3">Leve os resultados para análise por IA</h2><p class="muted small">O aplicativo calcula acertos localmente. A IA pode interpretar justificativas, padrões e limitações, sem emitir QI ou diagnósticos.</p><div class="form-actions"><button id="downloadBtn" class="btn btn-outline" type="button">Baixar JSON ↓</button><button id="copyBtn" class="btn btn-primary" type="button">Copiar análise para ChatGPT ↗</button><button id="apiBtn" class="btn btn-dark" type="button">Analisar via API ✧</button></div><p id="apiStatus" class="muted small" role="status" aria-live="polite">A análise automática exige backend publicado com uma chave de API segura.</p><pre class="explanation hide" id="aiResult" tabindex="0" aria-label="Resultado da análise automática"></pre></div>
+  <div class="form-section"><h2 class="h3">Leve os resultados para análise por IA</h2><p class="muted small">O aplicativo calcula acertos localmente. A IA pode interpretar justificativas, padrões e limitações, sem emitir QI ou diagnósticos.</p><p class="analysis-notice" role="note"><strong>Laudo técnico para pesquisa.</strong> Não é avaliação clínica e não estima QI, percentil ou diagnóstico. Nada é enviado sem o seu clique.</p><div class="form-actions"><button id="downloadBtn" class="btn btn-outline" type="button">Baixar relatório JSON ↓</button><button id="copyBtn" class="btn btn-primary" type="button">Copiar análise para ChatGPT ↗</button><button id="apiBtn" class="btn btn-dark" type="button">Analisar via API ✧</button><button id="analysisDownloadBtn" class="btn btn-outline hide" type="button">Baixar análise JSON ↓</button></div><p id="apiStatus" class="muted small" role="status" aria-live="polite">A análise automática exige backend publicado com uma chave de API segura.</p>
+    <section id="aiReport" class="analysis-report hide" tabindex="-1" aria-labelledby="aiReportTitle">
+      <h3 id="aiReportTitle">Laudo técnico</h3>
+      <p class="analysis-notice" role="note">Audiência de pesquisa. Não é avaliação clínica e não estima QI, percentil ou diagnóstico.</p>
+      <h4 class="analysis-subtitle" id="aiMetaTitle">Versão e rastreabilidade</h4>
+      <dl class="analysis-meta" id="aiMeta" aria-labelledby="aiMetaTitle"></dl>
+      <h4 class="analysis-subtitle" id="aiSummaryTitle">Resumo da sessão</h4>
+      <p id="aiSummary" class="small" aria-labelledby="aiSummaryTitle">—</p>
+      <p id="aiInsufficient" class="analysis-insufficient hide"></p>
+      <h4 class="analysis-subtitle" id="aiClaimsTitle">Afirmações</h4>
+      <ol id="aiClaims" class="analysis-claims" aria-labelledby="aiClaimsTitle"></ol>
+      <h4 class="analysis-subtitle" id="aiLimitationsTitle">Limitações</h4>
+      <ul id="aiLimitations" class="analysis-list" aria-labelledby="aiLimitationsTitle"></ul>
+      <h4 class="analysis-subtitle" id="aiRefusedTitle">O que a análise recusou</h4>
+      <ul id="aiRefused" class="analysis-list" aria-labelledby="aiRefusedTitle"></ul>
+    </section>
+  </div>
   <div class="form-actions"><button id="againBtn" class="btn btn-primary" type="button">Nova avaliação ↻</button></div>
 </section>
 </main>
