@@ -66,3 +66,33 @@ test('gap corrigido não altera acurácia, Brier nem dimensões e vai para a exp
  assert.equal(report.summary.accuracy,s.accuracy);assert.equal(report.summary.brierScore,s.brier);
  assert.deepEqual(report.summary.byDomain,s.byDomain);
 });
+
+const curatedItem = (id, domain) => ({ id, domain, topic: 'abstrato', question: `Pergunta revisada ${id}`, context: '', options: ['a', 'b', 'c', 'd'], answer: 0, explanation: 'x' });
+
+test('id repetido no catálogo não duplica item da prova', () => {
+  // fluid recebe 4 entradas, mas só 3 ids únicos.
+  const catalog = [
+    ...DIMENSIONS.flatMap(dim => Array.from({ length: 4 }, (_, i) => curatedItem(`${dim.id.toUpperCase()}-${i}`, dim.id))),
+    curatedItem('FLUID-REPETIDO', 'fluid'),
+    curatedItem('FLUID-REPETIDO', 'fluid')
+  ];
+  const form = buildForm({ tier: 'screening', seed: 11, catalog });
+  assert.equal(form.items.length, 20);
+  assert.equal(new Set(form.items.map(item => item.id)).size, 20);
+  const curated = form.items.filter(item => item.origin === 'curated').map(item => item.id);
+  assert.equal(new Set(curated).size, curated.length);
+});
+
+test('id repetido em domínios diferentes fica uma vez só, mantendo a primeira ocorrência', () => {
+  const catalog = [
+    ...DIMENSIONS.flatMap(dim => Array.from({ length: 4 }, (_, i) => curatedItem(`${dim.id.toUpperCase()}-${i}`, dim.id))),
+    curatedItem('MESMO-ID', 'fluid'),
+    curatedItem('MESMO-ID', 'quant')
+  ];
+  const form = buildForm({ tier: 'screening', seed: 12, catalog });
+  assert.equal(form.items.length, 20);
+  const same = form.items.filter(item => item.id === 'MESMO-ID');
+  assert.equal(same.length, 1);
+  assert.equal(same[0].domain, 'fluid');
+  assert.equal(new Set(form.items.map(item => item.id)).size, 20);
+});

@@ -70,12 +70,20 @@ const usableCatalogItem=q=>Boolean(q)&&typeof q.id==='string'&&q.id.length>0
   &&Array.isArray(q.options)&&q.options.length===4&&new Set(q.options.map(String)).size===4
   &&Number.isInteger(q.answer)&&q.answer>=0&&q.answer<4
   &&typeof q.question==='string'&&q.question.length>0;
+/** Deduplica o catálogo inteiro por id, mantendo a primeira ocorrência na
+ * ordem recebida. Sem isso, um id repetido pode entrar duas vezes na prova,
+ * espelhar a resposta e contar em dobro na nota. */
+export function uniqueById(items){
+  const seen=new Set(),out=[];
+  for(const item of items){if(!item||seen.has(item.id))continue;seen.add(item.id);out.push(item);}
+  return out;
+}
 export function buildForm({tier='screening',seed=Date.now(),seen=[],catalog=[]}={}){
   const count=TIERS[tier];if(!count)throw new Error('Tier inválido');
   const r=rng(seed),usedIds=new Set(),items=[],seenSet=new Set(seen);
   const selectedFamilies=groups();const perDim=count/selectedFamilies.length;
   // Itens revisados entram primeiro; famílias paramétricas completam as vagas.
-  const curated=Array.isArray(catalog)?catalog.filter(usableCatalogItem):[];
+  const curated=Array.isArray(catalog)?uniqueById(catalog.filter(usableCatalogItem)):[];
   for(const {dim,templates} of selectedFamilies){
     const pool=curated.filter(q=>q.domain===dim.id&&!usedIds.has(q.id));
     const ordered=[...shuffle(r,pool.filter(q=>!seenSet.has(q.id))),...shuffle(r,pool.filter(q=>seenSet.has(q.id)))];

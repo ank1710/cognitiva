@@ -59,12 +59,34 @@ export function optionLabel(text, index) {
   return `Alternativa ${letter}: ${spoken}`;
 }
 
+/** Carrega o catálogo revisado sem nunca rejeitar: arquivo ausente, JSON
+ * inválido ou servidor lento caem em lista vazia e a prova segue paramétrica.
+ * O timeout curto evita segurar o botão "Começar" indefinidamente. */
+export function loadCatalog({ fetchImpl, timeoutMs = 1500 } = {}) {
+  const doFetch = fetchImpl !== undefined ? fetchImpl : (typeof fetch === 'function' ? fetch : null);
+  if (!doFetch) return Promise.resolve([]);
+  let timer = null;
+  const timeout = new Promise(resolve => { timer = setTimeout(() => resolve([]), timeoutMs); });
+  const load = (async () => {
+    try {
+      const response = await doFetch('/catalog/items.json', { cache: 'no-store' });
+      if (!response?.ok) return [];
+      const list = await response.json();
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  })();
+  return Promise.race([load, timeout]).finally(() => clearTimeout(timer));
+}
+
 export function initApp() {
   const $ = id => document.getElementById(id);
   const store = createStore();
   const esc = escapeHtml;
   let tier = 'screening', session = store.readSession(), currentView = 'home', catalog = [];
-  fetch('/catalog/items.json', {cache: 'no-store'}).then(resp => resp.ok ? resp.json() : []).catch(() => []).then(list => {if (Array.isArray(list)) catalog = list;});
+  const catalogReady = loadCatalog();
+  catalogReady.then(list => { catalog = list; });
   function notice(message) {const el = $('storageNotice'); if (!el) return; el.textContent = message || ''; el.classList.toggle('hide', !message);}
   function announceStatus(message) {const el = $('examStatus'); if (!el || el.textContent === message) return; el.textContent = message;}
   let storageChecked = null;
@@ -94,9 +116,13 @@ export function initApp() {
     const history = store.readHistory();
     $('historyList').innerHTML = history.length ? history.map(h => `<div class="history-row"><div><strong>${esc(h.tierName)}</strong><div class="tiny">${esc(new Date(h.date).toLocaleDateString('pt-BR'))}</div></div><span>${h.correct}/${h.total} acertos</span></div>`).join('') : 'Nenhuma avaliação concluída neste dispositivo.';
   }
-  function start(fresh) {
+  async function start(fresh) {
     if (!fresh && session && !session.finishedAt) {renderQuestion(); show('exam'); focusHeading('questionTitle'); return;}
     if (fresh && session && !session.finishedAt && Object.keys(session.answers).length && !confirm('Iniciar outra avaliação substituirá a sessão em andamento. Continuar?')) return;
+    // Espera o catálogo já iniciado; se ainda não chegou, o timeout do
+    // carregamento libera a prova com itens paramétricos.
+    const loaded = await catalogReady;
+    if (Array.isArray(loaded)) catalog = loaded;
     const seed = crypto.getRandomValues(new Uint32Array(1))[0];
     const seen = store.readExposure();
     const form = buildForm({tier, seed, seen, catalog});
