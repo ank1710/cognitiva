@@ -13,13 +13,22 @@ const FINGERPRINT = `sha256:${'a'.repeat(64)}`;
 const envelope = (overrides = {}) => ({
   schemaVersion: 'analysis-2',
   rubricVersion: 'rubric-1.0.0',
-  promptVersion: 'prompt-1.0.0',
+  promptVersion: 'prompt-1.1.0',
   mode: 'full',
   model: 'gpt-test',
   generatedAt: '2026-10-30T12:00:00.000Z',
   dataFingerprint: FINGERPRINT,
   evidenceSnapshotId: FINGERPRINT,
   justificationConsent: { authorized: false, scope: 'none', consentId: null },
+  participant: {
+    audience: 'participant',
+    releaseStatus: 'blocked',
+    signedBy: null,
+    derivedFromClaims: ['C1'],
+    sections: [{ title: 'O que a sessão mostrou', text: 'Acertou 3 de 4.', sourceClaimIds: ['C1'] }],
+    exercises: [],
+    closing: 'prévia interna — não é avaliação clínica nem devolutiva oficial'
+  },
   technical: {
     audience: 'research',
     sessionSummary: { tier: 'screening', answered: 20, total: 20, globalAccuracy: 0.6 },
@@ -36,10 +45,12 @@ test('resposta 200 com envelope analysis-2 válido', async () => {
   assert.equal(r.ok, true);
   assert.equal(r.analysis, 'Panorama ok.');
   assert.equal(r.rubricVersion, 'rubric-1.0.0');
-  assert.equal(r.promptVersion, 'prompt-1.0.0');
+  assert.equal(r.promptVersion, 'prompt-1.1.0');
   assert.equal(r.model, 'gpt-test');
   assert.equal(r.dataFingerprint, FINGERPRINT);
   assert.equal(r.technical.claims.length, 1);
+  assert.equal(r.participant.releaseStatus, 'blocked');
+  assert.deepEqual(r.participant.derivedFromClaims, ['C1']);
 });
 
 test('schema desconhecido vira invalid-schema, não sucesso parcial', async () => {
@@ -48,7 +59,9 @@ test('schema desconhecido vira invalid-schema, não sucesso parcial', async () =
     envelope({ schemaVersion: 'analysis-1' }),
     envelope({ rubricVersion: undefined }),
     envelope({ dataFingerprint: 'md5:abc' }),
-    envelope({ technical: { claims: [] } })
+    envelope({ technical: { claims: [] } }),
+    envelope({ participant: undefined }),
+    envelope({ participant: { audience: 'participant' } })
   ]) {
     const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(200, body) });
     assert.equal(r.ok, false);
@@ -65,6 +78,15 @@ test('409 do servidor vira stale-report com detalhe', async () => {
   assert.equal(r.code, 'stale-report');
   assert.equal(r.message, ANALYSIS_MESSAGES['stale-report']);
   assert.match(r.detail, /Relatório mudou/);
+});
+
+test('400 do servidor vira consent-invalid', async () => {
+  const r = await requestAnalysis(report, {
+    fetchImpl: async () => fakeResponse(400, { error: 'consentimento', code: 'consent-invalid', fallback: 'copy-prompt' })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'consent-invalid');
+  assert.equal(r.message, ANALYSIS_MESSAGES['consent-invalid']);
 });
 
 test('422 com code invalid-schema preserva o detalhe da rubrica', async () => {
