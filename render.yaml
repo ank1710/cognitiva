@@ -1,0 +1,32 @@
+# Cognitiva — Web Service Node no Render (plano free).
+# Este arquivo NÃO publica nada: só descreve o serviço para quando o deploy for autorizado.
+services:
+  - type: web
+    name: cognitiva-piloto
+    runtime: node
+    plan: free
+    branch: main
+    # Sem dependências nem package-lock: este comando é só um no-op explícito.
+    buildCommand: "echo 'sem dependências para instalar'"
+    startCommand: "node scripts/serve.js"
+    healthCheckPath: /
+    # Evita deploy automático a cada push enquanto o piloto está fechado.
+    autoDeploy: false
+    envVars:
+      # Render injeta PORT automaticamente; não declare PORT aqui.
+      - key: HOST
+        value: 0.0.0.0
+      - key: PILOT_TOKENS
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
+      - key: PILOT_PER_TOKEN_PER_DAY
+        sync: false
+      - key: PILOT_GLOBAL_PER_DAY
+        sync: false
+      - key: PILOT_PER_TOKEN_PER_MINUTE
+        sync: false
+# Limitação do plano free: o serviço hiberna após ~15 min sem tráfego e o
+# primeiro acesso depois disso sofre cold start (dezenas de segundos).
