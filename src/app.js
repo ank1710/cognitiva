@@ -1,27 +1,36 @@
 import {VERSION,TIERS,DIMENSIONS,buildForm,grade,exportReport} from './engine.js';
 import {requestAnalysis} from './analysis.js';
+import {createStore,KEYS} from './storage.js';
 const $=id=>document.getElementById(id);
-const KEYS={session:'cognitiva_v2_session',seen:'cognitiva_v2_exposure',history:'cognitiva_v2_history'};
-const safeRead=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
-const save=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
+const store=createStore();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let tier='screening',session=safeRead(KEYS.session,null),currentView='home';
+let tier='screening',session=store.readSession(),currentView='home';
+function notice(message){const el=$('storageNotice');if(!el)return;el.textContent=message||'';el.classList.toggle('hide',!message);}
+let storageChecked=null;
+function storageAvailable(){if(storageChecked===null)storageChecked=store.isAvailable();return storageChecked;}
+function reportStorageIssues(){
+ const issues=store.issues.map(i=>i.code);
+ if(issues.includes('invalid-json')||issues.includes('invalid-session'))return notice('Uma sessão salva não pôde ser lida e foi isolada (cópia em '+KEYS.session+'__isolated). Você pode começar uma nova avaliação.');
+ if(issues.includes('quota')||issues.includes('write-failed'))return notice('O navegador não permitiu salvar. A avaliação continua nesta aba, mas pode ser perdida ao fechar.');
+ if(!storageAvailable())return notice('Este navegador está com o armazenamento local bloqueado. Você pode fazer a avaliação, mas nada será salvo se a página fechar.');
+ if(issues.includes('session-repaired')||issues.includes('session-legacy'))return notice('Sua sessão salva foi ajustada para abrir corretamente. Confira as respostas antes de continuar.');
+}
 function show(name){currentView=name;for(const view of ['home','exam','result'])$(view+'View').classList.toggle('hide',view!==name);window.scrollTo(0,0);}
-function persist(){if(session)save(KEYS.session,session);}
+function persist(){if(!session)return;const result=store.saveSession(session);if(!result.ok)reportStorageIssues();}
 function answer(q){return session.answers[q.id]||{};}
 function current(){return session.form.items[session.index];}
 function toHome(){renderHome();show('home');}
 function renderHome(){
  $('dimensionCards').innerHTML=DIMENSIONS.map(d=>`<div class="domain-card"><div class="domain-icon">${d.icon}</div><h3>${esc(d.title)}</h3><p class="muted small">${esc(d.desc)}</p></div>`).join('');
  $('resumeBtn').classList.toggle('hide',!session||Boolean(session.finishedAt));
- const history=safeRead(KEYS.history,[]);
+ const history=store.readHistory();
  $('historyList').innerHTML=history.length?history.map(h=>`<div class="history-row"><div><strong>${esc(h.tierName)}</strong><div class="tiny">${esc(new Date(h.date).toLocaleDateString('pt-BR'))}</div></div><span>${h.correct}/${h.total} acertos</span></div>`).join(''):'Nenhuma avaliação concluída neste dispositivo.';
 }
 function start(fresh){
  if(!fresh&&session&&!session.finishedAt){renderQuestion();show('exam');return;}
  if(fresh&&session&&!session.finishedAt&&Object.keys(session.answers).length&&!confirm('Iniciar outra avaliação substituirá a sessão em andamento. Continuar?'))return;
  const seed=crypto.getRandomValues(new Uint32Array(1))[0];
- const seen=safeRead(KEYS.seen,[]);
+ const seen=store.readExposure();
  const form=buildForm({tier,seed,seen});
  session={form,index:0,answers:{},startedAt:new Date().toISOString(),finishedAt:null};
  persist();renderQuestion();show('exam');
@@ -50,11 +59,12 @@ function finalize(){if(session.finishedAt)return;
  const count=session.form.items.filter(q=>Number.isInteger(answer(q).choice)).length;
  if(count<session.form.items.length&&!confirm(`Você respondeu ${count} de ${session.form.items.length} questões. Concluir mesmo assim?`))return;
  session.finishedAt=new Date().toISOString();persist();
- const stats=grade(session.form,session.answers),history=safeRead(KEYS.history,[]);
+ const stats=grade(session.form,session.answers),history=store.readHistory();
  history.unshift({date:session.finishedAt,tier:session.form.tier,tierName:{screening:'Exploratória',standard:'Intermediária',deep:'Aprofundada'}[session.form.tier],total:session.form.items.length,correct:stats.correct});
- save(KEYS.history,history.slice(0,20));
- save(KEYS.seen,[...new Set([...safeRead(KEYS.seen,[]),...session.form.items.map(i=>i.id)])].slice(-10000));
+ store.saveHistory(history);
+ store.saveExposure([...store.readExposure(),...session.form.items.map(i=>i.id)]);
  renderResults();show('result');
+ if(!store.isAvailable())reportStorageIssues();
 }
 function result(){return exportReport(session.form,session.answers,session.startedAt,session.finishedAt);}
 function download(text,name,type='application/json'){const blob=new Blob([text],{type});const url=URL.createObjectURL(blob);const el=document.createElement('a');el.href=url;el.download=name;el.click();setTimeout(()=>URL.revokeObjectURL(url),500);}
@@ -76,8 +86,8 @@ $('prevBtn').onclick=()=>move(-1);$('nextBtn').onclick=()=>session.index===sessi
 $('finishBtn').onclick=finalize;$('pauseBtn').onclick=toHome;
 $('downloadBtn').onclick=()=>download(JSON.stringify(result(),null,2),`cognitiva_${session.form.tier}_${Date.now()}.json`);
 $('copyBtn').onclick=async()=>{try{await navigator.clipboard.writeText(prompt());alert('Relatório copiado. Cole em uma conversa com o ChatGPT.')}catch{download(prompt(),'cognitiva_prompt.txt','text/plain')}};
-$('apiBtn').onclick=analyze;$('againBtn').onclick=()=>{session=null;localStorage.removeItem(KEYS.session);toHome()};
+$('apiBtn').onclick=analyze;$('againBtn').onclick=()=>{session=null;store.clearSession();toHome()};
 $('privacyBtn').onclick=()=>alert('Os resultados e as questões vistas ficam neste navegador (localStorage). Nenhum resultado é enviado automaticamente. A análise via API só envia dados quando você confirma pelo botão. Para remover dados, use Apagar meus dados.');
-$('deleteBtn').onclick=()=>{if(!confirm('Apagar histórico e avaliação local deste navegador?'))return;Object.values(KEYS).forEach(k=>localStorage.removeItem(k));session=null;renderHome();};
-renderHome();if(session?.finishedAt){renderResults();show('result')}
+$('deleteBtn').onclick=()=>{if(!confirm('Apagar histórico e avaliação local deste navegador?'))return;store.clearAll();session=null;notice('');renderHome();};
+renderHome();if(session?.finishedAt){renderResults();show('result')}reportStorageIssues();
 window.__COGNITIVA_V2__={buildForm,grade,version:VERSION};
