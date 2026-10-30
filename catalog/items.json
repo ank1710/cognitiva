@@ -1,5 +1,62 @@
 [
   {
+    "id": "ESPACIAL-CUBO-0602",
+    "templateId": "espacial-planificacao-cubo",
+    "domain": "spatial",
+    "topic": "planificacao",
+    "question": "A planificação de um cubo tem quatro quadrados em linha, numerados 2, 3, 4 e 5 da esquerda para a direita. Sobre o quadrado 3 há um quadrado numerado 1, e abaixo do quadrado 3 há um quadrado numerado 6.\n\nQuando o cubo é montado, qual número fica na face oposta à face 3?",
+    "context": "Os quadrados são dobrados pelas arestas comuns, sem sobreposição, e cada face recebe o número que está no quadrado correspondente.",
+    "options": [
+      "1",
+      "2",
+      "6",
+      "5"
+    ],
+    "answer": 3,
+    "explanation": "os quadrados 2, 3, 4 e 5 formam a faixa que dá a volta no cubo. Nessa faixa, a face 3 fica oposta à face 5; restam 1 e 6 como o outro par de faces opostas.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "ESPACIAL-DUPLA-0603",
+    "templateId": "espacial-transformacao-composta",
+    "domain": "spatial",
+    "topic": "transformacoes",
+    "question": "Em uma grade 3×3, as colunas são numeradas de 1 a 3 da esquerda para a direita e as linhas de 1 a 3 de cima para baixo. Uma peça ocupa as células (1,3), (2,3) e (2,2).\n\nPrimeiro a peça é refletida em relação à linha vertical central da grade. Depois, o resultado é girado 90° no sentido horário em torno do centro da grade.\n\nQuais células a peça ocupa ao final?",
+    "context": "As duas transformações são aplicadas nessa ordem, e a peça permanece dentro da grade.",
+    "options": [
+      "(3,1), (3,2) e (2,2)",
+      "(3,3), (2,3) e (2,2)",
+      "(1,2), (1,3) e (2,2)",
+      "(1,1), (1,2) e (2,2)"
+    ],
+    "answer": 2,
+    "explanation": "a reflexão leva (x, y) em (4 − x, y): (1,3) → (3,3), (2,3) → (2,3), (2,2) → (2,2). O giro horário leva (x, y) em (4 − y, x): (3,3) → (1,3), (2,3) → (1,2), (2,2) → (2,2).",
+    "difficulty": "nível 4",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "ESPACIAL-EQUIVALENTE-0604",
+    "templateId": "espacial-rotacao-vs-espelho",
+    "domain": "spatial",
+    "topic": "rotacao",
+    "question": "Em uma grade 3×3, uma peça em L ocupa as células (1,1), (2,1) e (2,2), com colunas de 1 a 3 da esquerda para a direita e linhas de 1 a 3 de cima para baixo.\n\nQual das peças abaixo é a mesma peça apenas girada, sem espelhamento?",
+    "context": "Girar a peça não muda a posição das células: apenas as recoloca na grade, em giros de 90°, 180° ou 270° em torno do centro da grade.",
+    "options": [
+      "(3,1), (2,1) e (2,2)",
+      "(3,1), (3,2) e (2,2)",
+      "(1,3), (2,3) e (2,2)",
+      "(3,3), (3,2) e (2,2)"
+    ],
+    "answer": 1,
+    "explanation": "é a peça original girada 90° no sentido horário: (1,1) → (3,1), (2,1) → (3,2) e (2,2) → (2,2).",
+    "difficulty": "nível 4",
+    "origin": "curated",
+    "version": 2
+  },
+  {
     "id": "ESPACIAL-GIRO-0401",
     "templateId": "espacial-giro-180",
     "domain": "spatial",
@@ -19,6 +76,25 @@
     "version": 3
   },
   {
+    "id": "ESPACIAL-NAVEGACAO-0601",
+    "templateId": "espacial-navegacao-egocentrica",
+    "domain": "spatial",
+    "topic": "orientacao",
+    "question": "Em uma grade 4×4, as colunas são numeradas de 1 a 4 da esquerda para a direita e as linhas de 1 a 4 de cima para baixo. Uma pessoa começa na célula (3,4), voltada para o norte, isto é, para o topo da grade.\n\nEla anda 2 células para frente, vira à direita, anda 1 célula, vira à direita e anda 2 células.\n\nEm que célula ela termina?",
+    "context": "Cada passo move exatamente uma célula. As viradas são de 90° e a pessoa nunca sai da grade.",
+    "options": [
+      "(4,2)",
+      "(2,2)",
+      "(4,4)",
+      "(3,4)"
+    ],
+    "answer": 2,
+    "explanation": "para o norte a linha diminui: (3,4) → (3,2). A primeira virada à direita aponta para o leste, levando a (4,2). A segunda virada à direita aponta para o sul, e dois passos levam a (4,4).",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 2
+  },
+  {
     "id": "ESPACIAL-REFLEXO-0402",
     "templateId": "espacial-reflexao-vertical",
     "domain": "spatial",
@@ -33,6 +109,120 @@
     ],
     "answer": 0,
     "explanation": "refletir em relação à linha vertical central leva (x, y) em (4 − x, y). Aplicando: (1,1) → (3,1), (2,1) → (2,1) e (1,2) → (3,2).",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 3
+  },
+  {
+    "id": "FLUID-BALANCA-0603",
+    "templateId": "fluido-equivalencia-transitiva",
+    "domain": "fluid",
+    "topic": "equivalencias",
+    "question": "Em uma balança em equilíbrio, uma bola equivale exatamente a 3 cubos. Um cubo equivale exatamente a 2 piões.\n\nQuantos piões equilibram exatamente 2 bolas?",
+    "context": "Todas as peças de mesmo tipo têm o mesmo peso, e a balança está em equilíbrio em todas as equivalências citadas.",
+    "options": [
+      "9",
+      "6",
+      "12",
+      "18"
+    ],
+    "answer": 2,
+    "explanation": "2 bolas valem 2 × 3 = 6 cubos, e 6 cubos valem 6 × 2 = 12 piões.",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "FLUID-CIFRA-0602",
+    "templateId": "fluido-cifra-posicional",
+    "domain": "fluid",
+    "topic": "codigos",
+    "question": "Em um código, cada letra de uma palavra é deslocada no alfabeto conforme a posição que ocupa: a 1ª letra avança 1 posição, a 2ª avança 2, a 3ª avança 3, e assim por diante.\n\nExemplo: MESA vira NGVE (M→N, E→G, S→V, A→E).\n\nComo fica a palavra LIVRO?",
+    "context": "O alfabeto é o de 26 letras, sem acentos e sem cedilha; a regra se aplica da esquerda para a direita.",
+    "options": [
+      "MKYVT",
+      "MJWSP",
+      "NKYVT",
+      "MKYVU"
+    ],
+    "answer": 0,
+    "explanation": "aplicando os deslocamentos 1, 2, 3, 4 e 5: L→M, I→K, V→Y, R→V, O→T.",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "FLUID-MATRIZ-0601",
+    "templateId": "fluido-matriz-aditiva",
+    "domain": "fluid",
+    "topic": "matrizes",
+    "question": "Uma matriz tem três linhas e três colunas. Em cada linha e em cada coluna vale a mesma regra, aplicada da esquerda para a direita e de cima para baixo.\n\nLinha 1: 2, 3, 5\nLinha 2: 4, 1, 5\nLinha 3: 6, 4, ?\n\nQual número substitui a interrogação?",
+    "context": "A regra é a mesma nas três linhas e nas três colunas, sem exceção.",
+    "options": [
+      "8",
+      "10",
+      "9",
+      "12"
+    ],
+    "answer": 1,
+    "explanation": "nas duas primeiras linhas, 2 + 3 = 5 e 4 + 1 = 5; as colunas 1 e 2 confirmam a mesma operação (2 + 4 = 6 e 3 + 1 = 4). Aplicando à linha 3: 6 + 4 = 10, valor que também fecha a coluna 3 (5 + 5 = 10).",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 3
+  },
+  {
+    "id": "FLUID-ROTULOS-0604",
+    "templateId": "fluido-rotulos-trocados",
+    "domain": "fluid",
+    "topic": "deducao",
+    "question": "Três caixas fechadas estão sobre uma mesa: uma contém apenas maçãs, outra apenas peras e a terceira uma mistura das duas frutas. As etiquetas \"maçãs\", \"peras\" e \"mistas\" foram coladas, mas todas estão na caixa errada.\n\nSem olhar dentro, você pode retirar uma única fruta de uma única caixa. De qual caixa se deve retirar a fruta para descobrir o conteúdo das três?",
+    "context": "As frutas de cada caixa são todas do mesmo tipo ou, na caixa mista, dos dois tipos. Cada etiqueta está errada: nenhuma caixa corresponde ao que a etiqueta diz.",
+    "options": [
+      "Da caixa com a etiqueta \"maçãs\".",
+      "Da caixa com a etiqueta \"mistas\".",
+      "Da caixa com a etiqueta \"peras\".",
+      "De qualquer uma das três, pois o resultado é o mesmo."
+    ],
+    "answer": 1,
+    "explanation": "Como essa etiqueta está errada, a caixa não é mista: ela contém só maçãs ou só peras. A fruta retirada revela o conteúdo dela e, por exclusão, o das outras duas.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "FLUIDO-CORES-0102",
+    "templateId": "fluido-deducao-cores",
+    "domain": "fluid",
+    "topic": "deducao",
+    "question": "Quatro peças (A, B, C, D) foram pintadas em cores diferentes: azul, verde, amarela e branca. Sabe-se que A não é azul nem verde, e que B é amarela. Qual é a cor da peça A?",
+    "context": "Cada cor é usada exatamente uma vez.",
+    "options": [
+      "Azul",
+      "Verde",
+      "Amarela",
+      "Branca"
+    ],
+    "answer": 3,
+    "explanation": "A só pode ser amarela ou branca, porque não é azul nem verde. Como B já é amarela e cada cor é usada uma vez, A é branca.",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "FLUIDO-SERIE-0101",
+    "templateId": "fluido-serie-alternada",
+    "domain": "fluid",
+    "topic": "sequencias",
+    "question": "Qual número completa a sequência?\n\n3 · 5 · 10 · 12 · 24 · 26 · ?",
+    "context": "Nenhum.",
+    "options": [
+      "28",
+      "48",
+      "52",
+      "54"
+    ],
+    "answer": 2,
+    "explanation": "a sequência alterna duas operações: somar 2 e multiplicar por 2. Depois de 26, a próxima operação é multiplicar por 2, resultando em 52.",
     "difficulty": "nível 3",
     "origin": "curated",
     "version": 3
@@ -57,6 +247,139 @@
     "version": 3
   },
   {
+    "id": "QUANT-COMBINACAO-0604",
+    "templateId": "quant-principio-multiplicativo",
+    "domain": "quant",
+    "topic": "contagem",
+    "question": "Uma lanchonete monta sanduíches com exatamente um pão, um recheio e um queijo. Ela oferece 3 tipos de pão, 4 tipos de recheio e 2 tipos de queijo.\n\nQuantas combinações diferentes de sanduíche podem ser montadas?",
+    "context": "Todos os tipos estão disponíveis ao mesmo tempo e cada combinação usa um item de cada categoria, sem repetir categoria.",
+    "options": [
+      "9",
+      "12",
+      "24",
+      "48"
+    ],
+    "answer": 2,
+    "explanation": "para cada um dos 3 pães há 4 recheios, o que dá 12 pares; cada par admite 2 queijos, totalizando 3 × 4 × 2 = 24.",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "QUANT-DESCONTO-0202",
+    "templateId": "quant-percentual-inverso",
+    "domain": "quant",
+    "topic": "percentuais",
+    "question": "Depois de um desconto de 20%, um produto passou a custar R$ 96,00. Qual era o preço antes do desconto?",
+    "context": "O desconto incidiu sobre o preço original, sem outros acréscimos.",
+    "options": [
+      "R$ 115,20",
+      "R$ 120,00",
+      "R$ 124,80",
+      "R$ 116,00"
+    ],
+    "answer": 1,
+    "explanation": "R$ 96,00 corresponde a 80% do preço original. Dividindo 96 por 0,8, obtém-se 120.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "QUANT-ESCALA-0603",
+    "templateId": "quant-escala-mapa",
+    "domain": "quant",
+    "topic": "proporcao",
+    "question": "Em um mapa na escala 1:50.000, a distância em linha reta entre duas cidades é de 4 cm.\n\nQual é a distância real entre elas, em quilômetros?",
+    "context": "A escala indica que 1 unidade no mapa corresponde a 50.000 unidades iguais no terreno, e 1 km = 100.000 cm.",
+    "options": [
+      "0,2 km",
+      "20 km",
+      "2 km",
+      "200 km"
+    ],
+    "answer": 2,
+    "explanation": "4 cm no mapa correspondem a 4 × 50.000 = 200.000 cm no terreno, e 200.000 cm ÷ 100.000 = 2 km.",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "QUANT-MISTURA-0601",
+    "templateId": "quant-concentracao-mistura",
+    "domain": "quant",
+    "topic": "concentracao",
+    "question": "Uma solução é preparada misturando 200 mL de um líquido com 10% de sal e 300 mL de outro líquido com 25% de sal.\n\nQual é a porcentagem de sal na mistura final?",
+    "context": "As porcentagens são em volume, os volumes se somam sem perdas e a mistura fica homogênea.",
+    "options": [
+      "15%",
+      "19%",
+      "17,5%",
+      "35%"
+    ],
+    "answer": 1,
+    "explanation": "a primeira parte tem 0,10 × 200 = 20 mL de sal e a segunda tem 0,25 × 300 = 75 mL. O total é 95 mL de sal em 500 mL, ou seja, 95 ÷ 500 = 0,19 = 19%.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "QUANT-VELOCIDADE-0602",
+    "templateId": "quant-velocidade-media-ida-volta",
+    "domain": "quant",
+    "topic": "taxas",
+    "question": "Um ciclista vai de uma cidade a outra a 20 km/h e volta pelo mesmo caminho a 30 km/h, sem paradas.\n\nQual é a velocidade média do percurso completo de ida e volta?",
+    "context": "O percurso de ida tem a mesma extensão do de volta, e as velocidades são constantes em cada trecho.",
+    "options": [
+      "24 km/h",
+      "25 km/h",
+      "26 km/h",
+      "30 km/h"
+    ],
+    "answer": 0,
+    "explanation": "para um percurso de 60 km em cada sentido, a ida leva 3 h e a volta 2 h; são 120 km em 5 h, ou seja, 24 km/h.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "SISTEMAS-ACUMULO-0601",
+    "templateId": "sistemas-estoque-fluxo",
+    "domain": "systems",
+    "topic": "acumulos",
+    "question": "Um reservatório contém 450 litros de água. Ele recebe 25 litros por minuto e perde 40 litros por minuto, com vazões constantes.\n\nQuanto tempo leva para o reservatório esvaziar?",
+    "context": "As duas vazões ocorrem ao mesmo tempo e não mudam até o reservatório esvaziar.",
+    "options": [
+      "7 minutos",
+      "11 minutos",
+      "18 minutos",
+      "30 minutos"
+    ],
+    "answer": 3,
+    "explanation": "a perda líquida é de 40 − 25 = 15 litros por minuto. Dividindo os 450 litros por 15 litros por minuto, obtêm-se 30 minutos.",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 3
+  },
+  {
+    "id": "SISTEMAS-ALAVANCA-0603",
+    "templateId": "sistemas-ponto-de-alavanca",
+    "domain": "systems",
+    "topic": "intervencao",
+    "question": "Uma escola quer reduzir o atraso dos alunos na entrada.\n\nProposta 1: instalar um relógio maior no portão.\nProposta 2: ajustar o horário de abertura do portão ao horário real de chegada dos ônibus escolares.\n\nQual proposta altera a estrutura que produz o atraso, em vez de apenas sinalizá-lo?",
+    "context": "Na escola, o portão abre às 7h e os ônibus escolares chegam, em média, às 7h20. As duas propostas têm custo parecido e podem ser implantadas no próximo semestre.",
+    "options": [
+      "A proposta 1, porque informação visual reduz atraso.",
+      "As duas propostas são equivalentes, pois tratam do mesmo sintoma.",
+      "Nenhuma das duas, porque o atraso é aleatório.",
+      "A proposta 2, porque muda a regra que gera a espera."
+    ],
+    "answer": 3,
+    "explanation": "o portão abre às 7h e os ônibus chegam às 7h20, de modo que a espera nasce do horário de abertura. Ajustá-lo atua na regra que produz o atraso; o relógio maior apenas informa melhor a hora, sem alterar a causa.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 3
+  },
+  {
     "id": "SISTEMAS-ATRASO-0501",
     "templateId": "sistemas-ciclo-atraso",
     "domain": "systems",
@@ -76,6 +399,120 @@
     "version": 3
   },
   {
+    "id": "SISTEMAS-ESTOQUE-0502",
+    "templateId": "sistemas-efeito-colateral",
+    "domain": "systems",
+    "topic": "capacidade",
+    "question": "Uma padaria produz 200 pães por dia para uma demanda média de 180 por dia, que varia bastante entre dias de semana e fins de semana. A sobra de cada dia é descartada. A equipe decide produzir 220 por dia para reduzir o risco de faltar pão. Qual é o efeito colateral mais provável dessa decisão?",
+    "context": "O preço e o número de clientes não mudam com a decisão; a produção diária é fixa.",
+    "options": [
+      "Mais descarte nos dias de demanda baixa.",
+      "Aumento permanente da demanda para 220.",
+      "Fim da variação da demanda entre os dias.",
+      "Redução do tempo de fornada."
+    ],
+    "answer": 0,
+    "explanation": "Com produção fixa maior e sobra descartada, os dias de demanda baixa passam a gerar mais descarte. As demais alternativas atribuem à oferta efeitos que ela não produz nas condições descritas.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 4
+  },
+  {
+    "id": "SISTEMAS-INDICADOR-0604",
+    "templateId": "sistemas-indicador-substituto",
+    "domain": "systems",
+    "topic": "metricas",
+    "question": "Um call center passa a avaliar cada atendente pelo número de ligações concluídas por hora. Em poucas semanas, a duração média das ligações cai e cresce o número de clientes que ligam de novo com o mesmo problema.\n\nQual é a explicação mais provável?",
+    "context": "A meta foi definida pela direção e passou a valer para todos os atendentes no mesmo período.",
+    "options": [
+      "A meta aumentou o volume de ligações recebidas.",
+      "Os clientes passaram a ligar por motivos não relacionados.",
+      "A duração da ligação não tem relação com o número de ligações.",
+      "O indicador passou a ser otimizado no lugar do objetivo."
+    ],
+    "answer": 3,
+    "explanation": "encurtar ligações eleva a métrica por hora, mas resolve menos casos, o que explica o retorno dos mesmos clientes.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "SISTEMAS-RESISTENCIA-0602",
+    "templateId": "sistemas-resistencia-politica",
+    "domain": "systems",
+    "topic": "retroalimentacao",
+    "question": "Uma prefeitura reduz a tarifa do transporte público para atrair passageiros. Em poucos meses, as viagens aumentam, mas a receita por ônibus cai; a frota é reduzida, os intervalos crescem e parte dos novos passageiros volta a usar o carro.\n\nQual conceito descreve melhor esse resultado?",
+    "context": "O objetivo declarado era aumentar o número de passageiros de forma duradoura.",
+    "options": [
+      "Ciclo de reforço: mais passageiros geram mais passageiros.",
+      "Gargalo fixo: a frota é o único limite de todo o sistema.",
+      "Resistência à política: compensação reduz o ganho.",
+      "Efeito nulo: a mudança não gerou nenhuma resposta."
+    ],
+    "answer": 2,
+    "explanation": "compensação reduz o ganho. — a queda de receita provoca redução de frota, que piora o serviço e devolve parte dos passageiros ao carro, anulando parte do efeito pretendido.",
+    "difficulty": "nível 4",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "VERBAL-AMBIGUIDADE-0601",
+    "templateId": "verbal-ambiguidade-sintatica",
+    "domain": "verbal",
+    "topic": "ambiguidade",
+    "question": "Qual das frases abaixo admite mais de uma interpretação?",
+    "context": "Considere apenas a estrutura gramatical das frases, sem supor erros de digitação ou informação externa.",
+    "options": [
+      "O guia levou o turista ao museu às nove horas.",
+      "O guia levou o turista ao museu pela porta principal.",
+      "O guia levou o turista ao museu de trem.",
+      "O guia levou o turista ao museu e voltou ao hotel."
+    ],
+    "answer": 2,
+    "explanation": "\"de trem\" pode indicar o meio de transporte usado no trajeto ou nomear um tipo de museu (museu ferroviário). Sem contexto, as duas leituras são possíveis.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "VERBAL-ANALOGIA-0602",
+    "templateId": "verbal-analogia-funcional",
+    "domain": "verbal",
+    "topic": "analogias",
+    "question": "Complete a analogia: \"Biblioteca está para livro assim como galeria de arte está para ___\".",
+    "context": "A relação entre os dois primeiros termos é a mesma que deve existir entre os dois últimos.",
+    "options": [
+      "artista",
+      "quadro",
+      "visitante",
+      "parede"
+    ],
+    "answer": 1,
+    "explanation": "a biblioteca é o lugar onde se guardam e consultam livros; a galeria de arte é o lugar onde se expõem quadros.",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 2
+  },
+  {
+    "id": "VERBAL-CONCLUSAO-0604",
+    "templateId": "verbal-identificar-conclusao",
+    "domain": "verbal",
+    "topic": "argumentacao",
+    "question": "Leia o argumento:\n\n\"As bibliotecas do bairro ampliaram o horário de funcionamento neste semestre. No mesmo período, o número de empréstimos cresceu 18%, e nenhuma outra mudança foi feita no serviço. Por isso, é provável que a ampliação do horário tenha aumentado os empréstimos.\"\n\nQual é a conclusão desse argumento?",
+    "context": "Conclusão é a afirmação que o argumento pretende sustentar com as demais.",
+    "options": [
+      "O horário de funcionamento das bibliotecas do bairro foi ampliado.",
+      "O número de empréstimos cresceu 18% no período.",
+      "Nenhuma outra mudança foi feita no serviço.",
+      "A ampliação do horário provavelmente aumentou os empréstimos."
+    ],
+    "answer": 3,
+    "explanation": "é a afirmação introduzida por \"por isso\" e sustentada pelas três informações anteriores. As demais alternativas são premissas, não a tese defendida.",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 2
+  },
+  {
     "id": "VERBAL-EMBARQUE-0301",
     "templateId": "verbal-condicao-necessaria",
     "domain": "verbal",
@@ -93,5 +530,43 @@
     "difficulty": "nível 3",
     "origin": "curated",
     "version": 3
+  },
+  {
+    "id": "VERBAL-MAIORIA-0302",
+    "templateId": "verbal-quantificador-maioria",
+    "domain": "verbal",
+    "topic": "quantificadores",
+    "question": "Um relatório afirma: \"A maioria dos participantes que leu o regulamento respondeu corretamente.\" Qual conclusão é necessariamente verdadeira?",
+    "context": "\"Maioria\" significa mais da metade do grupo citado, não a totalidade.",
+    "options": [
+      "Ler o regulamento garantiu acerto.",
+      "Pelo menos um dos que leram o regulamento acertou.",
+      "Nenhum participante que não leu o regulamento acertou.",
+      "A maioria dos que acertaram leu o regulamento."
+    ],
+    "answer": 1,
+    "explanation": "Se a maioria de um grupo acertou, pelo menos uma pessoa acertou. As demais alternativas confundem o grupo de referência: A transforma maioria em garantia, C afirma algo sobre quem não leu e D inverte a direção da estatística.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 3
+  },
+  {
+    "id": "VERBAL-PARAFRASE-0603",
+    "templateId": "verbal-equivalencia-negacao",
+    "domain": "verbal",
+    "topic": "quantificadores",
+    "question": "Qual reescrita preserva o sentido da frase: \"Nem todos os inscritos compareceram à reunião.\"?",
+    "context": "Considere que havia inscritos e que a frase foi dita por quem conhece a lista de presença.",
+    "options": [
+      "Nenhum dos inscritos compareceu à reunião.",
+      "Pelo menos um inscrito não compareceu à reunião.",
+      "Todos os inscritos faltaram à reunião.",
+      "A maioria dos inscritos não compareceu à reunião."
+    ],
+    "answer": 1,
+    "explanation": "\"Nem todos\" nega a universalidade: basta que uma pessoa não tenha comparecido. Não afirma quantos faltaram.",
+    "difficulty": "nível 2",
+    "origin": "curated",
+    "version": 2
   }
 ]

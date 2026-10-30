@@ -120,7 +120,7 @@ Não adicionar contas, banco de dados ou geração ao vivo de questões antes de
 | T002 análise indisponível | aceito | cliente resiliente, rota local `POST /api/analyze` |
 | T003 armazenamento robusto | aceito | envelope v2, isolamento de dados corrompidos |
 | T004 catálogo + Obsidian | aceito | `npm run kb -- check/import`, item revisado ocupando vaga na prova |
-| Conteúdo revisado | parcial | 5 itens aprovados por humano (v3) entre 31 candidatos; catálogo ativo na prova |
+| Conteúdo revisado | parcial | 30 itens aprovados por humano, 6 por dimensão; 11 drafts aguardando revisão |
 
 Próximo passo: revisão humana do lote inicial e ampliação por lotes, não automação de aprovação.
 

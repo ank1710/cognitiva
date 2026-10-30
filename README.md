@@ -72,7 +72,7 @@ npm run kb -- check    # valida todas as notas
 npm run kb -- import   # grava catalog/items.json
 ```
 
-Itens revisados ocupam as primeiras vagas de cada dimensão; as famílias paramétricas completam a prova. Hoje há **5 itens aprovados** (2 espaciais, 1 quantitativo, 1 verbal, 1 sistêmico); o restante de cada prova continua paramétrico. Catálogo vazio mantém o comportamento anterior. Detalhes em `catalog/README.md` e no README do banco no vault.
+Itens revisados ocupam as primeiras vagas de cada dimensão; as famílias paramétricas completam a prova. Hoje há **30 itens aprovados**, 6 por dimensão: a prova de 20 itens é inteiramente revisada e as de 60 e 120 combinam revisados e paramétricos. Catálogo vazio mantém o comportamento anterior. Detalhes em `catalog/README.md` e no README do banco no vault.
 
 ## Objetivo do produto: medir habilidade, não familiaridade com a profissão
 
