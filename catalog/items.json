@@ -1,1 +1,97 @@
-[]
+[
+  {
+    "id": "ESPACIAL-GIRO-0401",
+    "templateId": "espacial-giro-180",
+    "domain": "spatial",
+    "topic": "rotacao",
+    "question": "Em uma grade 3×3, as colunas são numeradas de 1 a 3 da esquerda para a direita e as linhas de 1 a 3 de cima para baixo. Uma peça em L ocupa as células (1,1), (2,1) e (2,2). A peça gira 180° em torno do centro da grade. Quais células ela passa a ocupar?",
+    "context": "O centro da grade coincide com o centro da célula (2,2). A peça permanece dentro da grade.",
+    "options": [
+      "(1,1), (1,2) e (2,2)",
+      "(2,2), (2,3) e (3,3)",
+      "(1,1), (2,1) e (2,2)",
+      "(2,1), (3,1) e (3,2)"
+    ],
+    "answer": 1,
+    "explanation": "o giro de 180° em torno do centro da grade leva cada célula (coluna, linha) em (4 − coluna, 4 − linha). Aplicando: (1,1) → (3,3), (2,1) → (2,3) e (2,2) → (2,2).",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 3
+  },
+  {
+    "id": "ESPACIAL-REFLEXO-0402",
+    "templateId": "espacial-reflexao-vertical",
+    "domain": "spatial",
+    "topic": "reflexao",
+    "question": "Em uma grade 3×3, uma figura ocupa as células (1,1), (2,1) e (1,2), com colunas de 1 a 3 da esquerda para a direita e linhas de 1 a 3 de cima para baixo. A figura é refletida em relação à linha vertical central da grade. Quais células a figura refletida ocupa?",
+    "context": "A reflexão é em relação ao eixo vertical da grade: cada coluna x passa para 4 − x e a linha não muda.",
+    "options": [
+      "(3,1), (2,1) e (3,2)",
+      "(1,3), (2,3) e (1,2)",
+      "(3,3), (2,3) e (3,2)",
+      "(1,1), (2,1) e (1,2)"
+    ],
+    "answer": 0,
+    "explanation": "refletir em relação à linha vertical central leva (x, y) em (4 − x, y). Aplicando: (1,1) → (3,1), (2,1) → (2,1) e (1,2) → (3,2).",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 3
+  },
+  {
+    "id": "QUANT-BOMBAS-0201",
+    "templateId": "quant-trabalho-conjunto",
+    "domain": "quant",
+    "topic": "taxas",
+    "question": "Uma bomba enche um reservatório em 6 horas. Outra bomba, com vazão maior, enche o mesmo reservatório em 4 horas. Se as duas trabalharem juntas, sem vazamentos nem perdas, em quanto tempo o reservatório fica cheio?",
+    "context": "As vazões são constantes e independentes.",
+    "options": [
+      "2 horas",
+      "2 horas e 24 minutos",
+      "2 horas e 40 minutos",
+      "5 horas"
+    ],
+    "answer": 1,
+    "explanation": "em uma hora, as bombas enchem 1/6 + 1/4 = 5/12 do reservatório. O tempo total é 12/5 = 2,4 horas, ou seja, 2 horas e 24 minutos.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 3
+  },
+  {
+    "id": "SISTEMAS-ATRASO-0501",
+    "templateId": "sistemas-ciclo-atraso",
+    "domain": "systems",
+    "topic": "retroalimentacao",
+    "question": "Em um aplicativo de entregas, quanto mais pedidos chegam, maior fica o tempo de entrega. Entregas lentas fazem clientes cancelarem; com menos pedidos, o tempo de entrega cai e novos clientes voltam. Qual mecanismo descreve melhor a relação entre tempo de entrega e número de pedidos?",
+    "context": "Considere que os efeitos levam dias para aparecer, não minutos.",
+    "options": [
+      "Ciclo de reforço, porque pedidos geram mais pedidos.",
+      "Ciclo de balanceamento com atraso.",
+      "Relação aleatória, porque as duas variáveis não têm conexão.",
+      "Causalidade de mão única dos pedidos para o tempo, sem retorno."
+    ],
+    "answer": 1,
+    "explanation": "A consequência (cancelamentos) se opõe à mudança inicial (aumento de pedidos), caracterizando balanceamento. O intervalo entre causa e efeito produz oscilações em vez de ajuste imediato.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 3
+  },
+  {
+    "id": "VERBAL-EMBARQUE-0301",
+    "templateId": "verbal-condicao-necessaria",
+    "domain": "verbal",
+    "topic": "logica-do-cotidiano",
+    "question": "Em um terminal de ônibus, para embarcar é necessário apresentar um documento com foto. Marina embarcou. O que se conclui necessariamente?",
+    "context": "A regra foi cumprida e não há outras condições de embarque em discussão.",
+    "options": [
+      "Marina apresentou um documento com foto.",
+      "Toda pessoa que apresenta documento com foto embarca.",
+      "Marina não precisou de documento para embarcar.",
+      "Se alguém não embarcou, não tinha documento com foto."
+    ],
+    "answer": 0,
+    "explanation": "O documento é condição necessária: a regra é \"embarcar implica apresentar documento\". Como Marina embarcou, segue que ela apresentou o documento (modus ponens direto sobre a regra). A alternativa B inverte a relação e trata a condição necessária como suficiente; C contradiz a premissa; D é a inversa (\"não embarcou, logo não tinha documento\"), que não é equivalente à regra.",
+    "difficulty": "nível 3",
+    "origin": "curated",
+    "version": 3
+  }
+]

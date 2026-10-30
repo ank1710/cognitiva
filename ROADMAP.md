@@ -43,6 +43,7 @@ Score {rawCorrect, answered, byDomain, byTopic, calibrationMetrics}
 ### Marco B — Banco de itens de verdade (PRIORIDADE)
 
 - [x] Pipeline de catálogo: nota de item no Obsidian, validação, revisão e importação para a prova.
+- [x] Primeiro lote revisado: 5 itens aprovados por humano entrando na prova (de 31 candidatos).
 - [x] Lote inicial de 10 candidatos estruturalmente distintos em `Itens/` (todos `draft`, revisão humana pendente).
 - [ ] Criar catálogo de pelo menos 250–400 **itens candidatos substancialmente distintos** (não apenas permutações de número/cor/nome).
 - [ ] Registrar duas revisões independentes por item, além de resolver matematicamente onde possível.
