@@ -115,3 +115,14 @@ input[type=range]{min-height:44px}
 .participant-dimension{display:inline-block;background:#eef1f8;border-radius:6px;padding:1px 7px;font-size:12px;color:var(--slate)}
 .participant-why{color:var(--slate);font-size:12px}
 .analysis-closing{border-top:1px solid var(--line);margin:16px 0 0;padding-top:12px;font-size:12px;color:var(--slate)}
+
+/* v6 transparência da análise por IA (T013) */
+.ai-disclosure{background:#f4f6fb;border:1px solid #dfe4ef;border-left:4px solid #2f4bd8;border-radius:12px;padding:14px 16px;margin:14px 0 4px}
+.ai-disclosure h4{margin:0 0 8px}
+.ai-disclosure p{margin:0 0 8px;font-size:13px;line-height:1.65;color:var(--ink)}
+.ai-disclosure p:last-of-type{margin-bottom:0}
+.ai-disclosure-preview{background:#fff4e2;border:1px solid #f0d3a6;border-radius:8px;padding:8px 11px;color:#6b3a00;font-weight:700}
+.ai-rubric-summary{margin-top:10px;font-size:13px;color:var(--ink)}
+.ai-rubric-summary summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.ai-rubric-summary ul{margin:8px 0 0;padding-left:22px;line-height:1.7}
+.ai-rubric-summary li{margin-bottom:4px}

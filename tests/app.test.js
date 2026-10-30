@@ -132,3 +132,31 @@ test('sem participant não há seção de devolutiva', () => {
 test('a versão do consentimento na UI espelha consent-1.0.0', () => {
   assert.equal(CONSENT_TEXT_VERSION, 'consent-1.0.0');
 });
+
+test('bloco de transparência recebe rubrica, modelo e aviso de prévia', () => {
+  const base = participantOutcome().participant;
+  const view = buildParticipantView({ rubricVersion: 'rubric-1.0.0', model: 'gpt-test', participant: base });
+  assert.equal(view.rubricVersion, 'rubric-1.0.0');
+  assert.equal(view.model, 'gpt-test');
+  assert.match(view.previewNote, /Prévia: ainda não revisada por uma pessoa responsável/);
+});
+
+test('releaseStatus ready não vira devolutiva oficial na UI, mas dispensa o aviso de prévia', () => {
+  const base = participantOutcome({ releaseStatus: 'ready' }).participant;
+  const view = buildParticipantView({ rubricVersion: 'rubric-1.0.0', model: 'gpt-test', participant: base });
+  assert.equal(view.badge, PREVIEW_LABEL);
+  assert.equal(view.previewNote, null);
+});
+
+test('sem rubrica ou modelo o bloco mostra marcador, não texto inventado', () => {
+  const view = buildParticipantView(participantOutcome());
+  assert.equal(view.rubricVersion, null);
+  assert.equal(view.model, null);
+});
+
+test('modelo determinístico aparece em linguagem simples', () => {
+  const base = participantOutcome().participant;
+  const view = buildParticipantView({ rubricVersion: 'rubric-1.0.0', model: 'none', participant: base });
+  assert.equal(view.model, 'none');
+  assert.equal(view.modelLabel, 'não utilizado (análise determinística)');
+});
