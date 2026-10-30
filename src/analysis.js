@@ -47,35 +47,50 @@ export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, si
 
   let timedOut = false;
   const timer = controller && timeoutMs > 0 ? setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs) : null;
-  let response;
+  const aborted = controller ? new Promise((_, reject) => {
+    const error = () => Object.assign(new Error('aborted'), { name: 'AbortError' });
+    if (controller.signal.aborted) return reject(error());
+    controller.signal.addEventListener('abort', () => reject(error()), { once: true });
+  }) : null;
+  aborted?.catch(() => { /* consumido pelo race ou ignorado após abort */ });
+
   try {
-    response = await doFetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ results: result }),
-      ...(controller ? { signal: controller.signal } : {})
-    });
-  } catch (error) {
-    if (timer) clearTimeout(timer);
-    return failure(timedOut ? 'timeout' : 'network');
+    let response;
+    try {
+      response = await doFetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results: result }),
+        ...(controller ? { signal: controller.signal } : {})
+      });
+    } catch {
+      return failure(timedOut ? 'timeout' : 'network');
+    }
+
+    const status = Number(response?.status) || 0;
+    let raw = '';
+    try {
+      // O timer segue ativo até o corpo terminar: abortar no meio da leitura
+      // precisa virar mensagem de timeout, nunca sucesso parcial.
+      raw = await (aborted ? Promise.race([response.text(), aborted]) : response.text());
+    } catch {
+      if (timedOut) return failure('timeout');
+      raw = '';
+    }
+    let body = null;
+    try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+
+    if (!response?.ok) {
+      const code = codeForStatus(status);
+      const detail = body && typeof body === 'object' ? body.error || body.message : null;
+      return failure(code, status, detail || (raw ? raw.slice(0, 120) : null));
+    }
+    if (!body || typeof body !== 'object' || typeof body.analysis !== 'string' || !body.analysis.trim()) {
+      return failure('invalid-response', status || null);
+    }
+    return { ok: true, status, code: 'ok', analysis: body.analysis.trim(), message: 'Análise interpretativa concluída. Não é avaliação clínica.' };
   } finally {
     if (timer) clearTimeout(timer);
     signal?.removeEventListener?.('abort', abort);
   }
-
-  const status = Number(response?.status) || 0;
-  let raw = '';
-  try { raw = await response.text(); } catch { raw = ''; }
-  let body = null;
-  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
-
-  if (!response?.ok) {
-    const code = codeForStatus(status);
-    const detail = body && typeof body === 'object' ? body.error || body.message : null;
-    return failure(code, status, detail || (raw ? raw.slice(0, 120) : null));
-  }
-  if (!body || typeof body !== 'object' || typeof body.analysis !== 'string' || !body.analysis.trim()) {
-    return failure('invalid-response', status || null);
-  }
-  return { ok: true, status, code: 'ok', analysis: body.analysis.trim(), message: 'Análise interpretativa concluída. Não é avaliação clínica.' };
 }

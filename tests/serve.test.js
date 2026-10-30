@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from '../scripts/serve.js';
+import { createServer, resolveHost } from '../scripts/serve.js';
 
 const results20 = {
   app: 'Cognitiva',
@@ -60,4 +60,33 @@ test('servidor continua entregando a interface e bloqueia path traversal', async
     const escape = await fetch(`${base}/..%2f..%2fetc%2fpasswd`);
     assert.equal(escape.status, 404);
   });
+});
+
+test('não serve dotfiles, .git nem .env', async () => {
+  await withServer(async base => {
+    for (const path of ['/.git/config', '/.git/HEAD', '/.env', '/src/.env', '/catalog/.env', '/.git']) {
+      const res = await fetch(`${base}${path}`);
+      assert.equal(res.status, 404, path);
+    }
+  });
+});
+
+test('serve apenas a interface, /src/ e /catalog/', async () => {
+  await withServer(async base => {
+    for (const path of ['/', '/index.html', '/src/app.js', '/src/analysis.js', '/catalog/items.json']) {
+      const res = await fetch(`${base}${path}`);
+      assert.equal(res.status, 200, path);
+    }
+    for (const path of ['/README.md', '/package.json', '/tests/serve.test.js', '/scripts/serve.js', '/api/analyze.js']) {
+      const res = await fetch(`${base}${path}`);
+      assert.equal(res.status, 404, path);
+    }
+  });
+});
+
+test('host padrão é loopback e HOST explícito é respeitado', () => {
+  assert.equal(resolveHost({}), '127.0.0.1');
+  assert.equal(resolveHost({ HOST: '' }), '127.0.0.1');
+  assert.equal(resolveHost({ HOST: '   ' }), '127.0.0.1');
+  assert.equal(resolveHost({ HOST: '0.0.0.0' }), '0.0.0.0');
 });
