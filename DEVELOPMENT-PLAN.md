@@ -103,15 +103,28 @@ Cada brief precisa conter: objetivo, reprodução, arquivos permitidos, itens fo
 | 6 | Crescer banco de candidatos | Ampliar por lotes revisados rumo aos 250–400 candidatos do roadmap; controlar contexto, leitura, exposição e ambiguidade |
 | 7 | Piloto com múltiplos participantes | Consentimento, retenção, perfis/sincronização, autenticação e controles de custo antes de exposição pública |
 
-Reproduções já confirmadas:
+Reproduções que motivaram as tarefas já aceitas:
 
-- Em [grade](./src/engine.js), uma resposta correta com confiança 100% e outra incorreta sem confiança geram média de confiança 100%, acurácia global 50% e gap 50 pontos. Comparando apenas respostas com confiança, o gap deveria ser zero. A acurácia global continua válida como medida separada.
-- `POST /api/analyze` no servidor local retorna **405**, corpo `Método não permitido`. A UI chama `resp.json()` antes de tratar o status. O exemplo de API não é executado por esse servidor; só adicionar uma chave não habilita o fluxo local.
-- Armazenamento: risco observado por leitura de código, ainda sem reprodução. `safeRead` aceita qualquer JSON válido e `save` não trata exceções de `localStorage`.
+- [T001] Em [grade](./src/engine.js), uma resposta correta com confiança 100% e outra incorreta sem confiança geravam média de confiança 100%, acurácia global 50% e gap 50 pontos. Corrigido: o gap usa só o subconjunto com confiança; a acurácia global continua separada.
+- [T002] `POST /api/analyze` no servidor local retornava **405** em texto puro e a UI chamava `resp.json()` antes de tratar o status. Corrigido: rota local em JSON, cliente resiliente e mensagens específicas. O caminho de sucesso local ainda exige `OPENAI_API_KEY` no servidor.
+- [T003] Armazenamento: `safeRead` aceitava qualquer JSON válido e `save` não tratava exceções de `localStorage`. Corrigido: envelope v2, validação, reparo e isolamento de dados suspeitos.
 
-Não adicionar contas, banco de dados ou geração ao vivo de questões antes de validar a experiência básica. O banco atual tem só 20 estruturas; a auditoria de código não estabelece validade psicométrica. Modelos podem propor candidatos, mas não substituem revisão humana/especializada.
+Não adicionar contas, banco de dados ou geração ao vivo de questões antes de validar a experiência básica. O banco paramétrico tem 20 estruturas e o catálogo revisado ainda está vazio; a auditoria de código não estabelece validade psicométrica. Modelos podem propor candidatos, mas não substituem revisão humana/especializada.
 
-## 7. Critério para automatizar o orquestrador
+## 7. Estado em 30/10/2026
+
+| Item | Estado | Evidência |
+| --- | --- | --- |
+| Baseline Git + remoto | aceito | `bac6fe2` em `github.com/ank1710/cognitiva`; worktree `worker/T001` |
+| T001 confiança × acertos | aceito | `4db250d` |
+| T002 análise indisponível | aceito | cliente resiliente, rota local `POST /api/analyze` |
+| T003 armazenamento robusto | aceito | envelope v2, isolamento de dados corrompidos |
+| T004 catálogo + Obsidian | aceito | `npm run kb -- check/import`, item revisado ocupando vaga na prova |
+| Conteúdo revisado | pendente | 10 candidatos `draft`; nenhum `approved` |
+
+Próximo passo: revisão humana do lote inicial e ampliação por lotes, não automação de aprovação.
+
+## 8. Critério para automatizar o orquestrador
 
 Depois de 2–3 tarefas aceitas, implementar um adaptador mínimo para **um** harness: recebe brief + pasta + modelo explícito; produz status, patch e relatório; respeita limites; não integra sozinho. Validar falha, timeout, cancelamento e execução duplicada antes de adicionar o próximo adaptador.
 

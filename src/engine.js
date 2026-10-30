@@ -65,13 +65,24 @@ export const FAMILIES={
 };
 export function generateItem(family,seed){const r=rng(seed);const raw=family.gen(r);const shuffled=permuteItem(r,raw);const signature=JSON.stringify({template:family.id,context:raw.context,question:raw.question,options:[...raw.options].sort()});const fingerprint=`${family.id}-${stableHash(signature).toString(36)}`;return {...shuffled,id:fingerprint,fingerprint,difficulty:'experimental',origin:'parametric',version:VERSION};}
 function groups(){return DIMENSIONS.map(d=>({dim:d,templates:FAMILIES[d.id]}));}
-export function buildForm({tier='screening',seed=Date.now(),seen=[]}={}){
+const usableCatalogItem=q=>Boolean(q)&&typeof q.id==='string'&&q.id.length>0
+  &&DIMENSIONS.some(d=>d.id===q.domain)
+  &&Array.isArray(q.options)&&q.options.length===4&&new Set(q.options.map(String)).size===4
+  &&Number.isInteger(q.answer)&&q.answer>=0&&q.answer<4
+  &&typeof q.question==='string'&&q.question.length>0;
+export function buildForm({tier='screening',seed=Date.now(),seen=[],catalog=[]}={}){
   const count=TIERS[tier];if(!count)throw new Error('Tier inválido');
   const r=rng(seed),usedIds=new Set(),items=[],seenSet=new Set(seen);
   const selectedFamilies=groups();const perDim=count/selectedFamilies.length;
+  // Itens revisados entram primeiro; famílias paramétricas completam as vagas.
+  const curated=Array.isArray(catalog)?catalog.filter(usableCatalogItem):[];
   for(const {dim,templates} of selectedFamilies){
+    const pool=curated.filter(q=>q.domain===dim.id&&!usedIds.has(q.id));
+    const ordered=[...shuffle(r,pool.filter(q=>!seenSet.has(q.id))),...shuffle(r,pool.filter(q=>seenSet.has(q.id)))];
+    const chosen=ordered.slice(0,perDim);
+    for(const q of chosen){usedIds.add(q.id);items.push({...q,options:[...q.options],origin:'curated'});}
     const selected=shuffle(r,templates);
-    for(let j=0;j<perDim;j++){
+    for(let j=chosen.length;j<perDim;j++){
       const family=selected[j%selected.length];let found=null;
       // Prefer previously unseen variants without pretending all variants are equivalent.
       for(let attempt=0;attempt<160;attempt++){

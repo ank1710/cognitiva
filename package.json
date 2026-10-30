@@ -9,7 +9,10 @@
     "start": "node scripts/serve.js",
     "test": "node --test tests/*.test.js",
     "audit": "node scripts/audit.js",
-    "check": "npm test && npm run audit"
+    "check": "npm test && npm run audit",
+    "kb": "node scripts/kb-sync.js"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

@@ -32,6 +32,8 @@ O arquivo `index.html` precisa de um servidor HTTP: abri-lo diretamente por `fil
 - Correção local, explicações, notas opcionais, Brier Score, confiança subjetiva, resultados por habilidade e relatório JSON.
 - Sessões que podem ser pausadas, resultado restaurado após atualizar a página e histórico das últimas 20 sessões no mesmo navegador.
 - Rastreamento de questões vistas nesse navegador para diminuir repetição imediata (não garante equivalência de dificuldade).
+- Banco de perguntas revisado no Obsidian, com validação, versionamento e importação para o catálogo da prova.
+- Sessão local recuperável: JSON inválido, formato antigo ou cota cheia não derrubam a interface.
 - Compartilhamento deliberado com ChatGPT por copiar prompt/baixar JSON e endpoint opcional para OpenAI API.
 - Layout responsivo para smartphone e desktop.
 
@@ -42,17 +44,35 @@ cognitiva-v2/
 ├── index.html           interface, sem dependências
 ├── src/
 │   ├── app.js           estado da UI, sessões, eventos, relatórios
-│   ├── engine.js        configuração de tiers, banco de famílias, motor, scoring
+│   ├── engine.js        tiers, famílias paramétricas, seleção, scoring
+│   ├── catalog.js       leitura e validação das notas de itens do Obsidian
+│   ├── storage.js       sessão local versionada, reparo e isolamento
+│   ├── analysis.js      cliente resiliente da análise opcional por IA
+│   ├── analyze-core.js  validação e chamada ao provedor (compartilhado)
 │   └── styles.css       tema visual
-├── tests/
-│   └── engine.test.js   testes determinísticos e invariantes
+├── catalog/             items.json gerado + regras de revisão
+├── tasks/               briefs com escopo e aceite
+├── tests/               engine, catalog, storage, analysis, serve
 ├── scripts/
-│   ├── serve.js         servidor HTTP local
-│   └── audit.js         auditoria de 900 formulários gerados
+│   ├── serve.js         servidor HTTP local, incluindo POST /api/analyze
+│   ├── audit.js         auditoria de 900 formulários gerados
+│   └── kb-sync.js       status/check/import do banco de perguntas
 ├── api/
-│   └── analyze.js       exemplo de rota serverless opcional, NÃO pronta para exposição pública
+│   └── analyze.js       adaptador serverless opcional, NÃO pronto para exposição pública
 └── ROADMAP.md           requisitos, qualidade e próximos marcos
 ```
+
+## Banco de perguntas no Obsidian
+
+Os itens revisados vivem no vault (`Knowledge Base/Banco de Perguntas/Itens`), uma nota por item, com frontmatter de revisão e versão. O app só usa item `approved` com `contentReview: passed`.
+
+```bash
+npm run kb -- status   # contagens por status, domínio e revisão
+npm run kb -- check    # valida todas as notas
+npm run kb -- import   # grava catalog/items.json
+```
+
+Itens revisados ocupam as primeiras vagas de cada dimensão; as famílias paramétricas completam a prova. Um catálogo vazio (estado atual) mantém o comportamento anterior. Detalhes em `catalog/README.md` e no README do banco no vault.
 
 ## Objetivo do produto: medir habilidade, não familiaridade com a profissão
 

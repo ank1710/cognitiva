@@ -4,7 +4,8 @@ import {createStore,KEYS} from './storage.js';
 const $=id=>document.getElementById(id);
 const store=createStore();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let tier='screening',session=store.readSession(),currentView='home';
+let tier='screening',session=store.readSession(),currentView='home',catalog=[];
+fetch('/catalog/items.json',{cache:'no-store'}).then(resp=>resp.ok?resp.json():[]).catch(()=>[]).then(list=>{if(Array.isArray(list))catalog=list});
 function notice(message){const el=$('storageNotice');if(!el)return;el.textContent=message||'';el.classList.toggle('hide',!message);}
 let storageChecked=null;
 function storageAvailable(){if(storageChecked===null)storageChecked=store.isAvailable();return storageChecked;}
@@ -31,7 +32,7 @@ function start(fresh){
  if(fresh&&session&&!session.finishedAt&&Object.keys(session.answers).length&&!confirm('Iniciar outra avaliação substituirá a sessão em andamento. Continuar?'))return;
  const seed=crypto.getRandomValues(new Uint32Array(1))[0];
  const seen=store.readExposure();
- const form=buildForm({tier,seed,seen});
+ const form=buildForm({tier,seed,seen,catalog});
  session={form,index:0,answers:{},startedAt:new Date().toISOString(),finishedAt:null};
  persist();renderQuestion();show('exam');
 }
