@@ -39,6 +39,21 @@ function codeForStatus(status) {
   return 'server-error';
 }
 
+/** Remove o texto livre do relatório antes de enviá-lo. Com o opt-in desligado,
+ * a justificativa não deve nem chegar ao servidor: o servidor a removeria de E,
+ * mas o corpo HTTP já teria saído do dispositivo. */
+export function withoutReasoning(result) {
+  if (!result || typeof result !== 'object' || !Array.isArray(result.responses)) return result;
+  return {
+    ...result,
+    responses: result.responses.map(response => {
+      if (!response || typeof response !== 'object') return response;
+      const { reasoning, ...rest } = response;
+      return rest;
+    })
+  };
+}
+
 /** Schema analysis-2 esperado na resposta do servidor (F1: só o laudo técnico). */
 const ANALYSIS_SCHEMA_VERSION = 'analysis-2';
 function schemaProblem(body) {
@@ -63,7 +78,7 @@ function schemaProblem(body) {
   return null;
 }
 
-export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, signal, expectedFingerprint = null } = {}) {
+export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, signal, expectedFingerprint = null, reasoningAuthorized = false, consentTextVersion = null } = {}) {
   const doFetch = fetchImpl !== undefined ? fetchImpl : (typeof fetch === 'function' ? fetch : null);
   if (!doFetch) return failure('unsupported');
   if (!result || typeof result !== 'object') return failure('invalid-payload');
@@ -89,7 +104,12 @@ export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, si
       response = await doFetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(expectedFingerprint ? { results: result, dataFingerprint: expectedFingerprint } : { results: result }),
+        body: JSON.stringify({
+          results: reasoningAuthorized === true ? result : withoutReasoning(result),
+          reasoningAuthorized: reasoningAuthorized === true,
+          consentTextVersion: reasoningAuthorized === true ? consentTextVersion : null,
+          ...(expectedFingerprint ? { dataFingerprint: expectedFingerprint } : {})
+        }),
         ...(controller ? { signal: controller.signal } : {})
       });
     } catch {

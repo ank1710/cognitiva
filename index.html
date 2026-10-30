@@ -45,7 +45,14 @@
   <div class="results-stat-grid" id="statGrid" role="group" aria-label="Resumo da sessão"></div>
   <div class="result-grid" style="margin-top:20px"><div class="result-box"><h2 class="h3">Acertos por dimensão</h2><p class="small muted">Descritivo: não permite comparação populacional</p><div id="domainGraph"></div></div><div class="result-box"><h2 class="h3">Confiança e calibração</h2><div id="confidenceSummary"></div><p class="small muted">A confiança é uma estimativa subjetiva. Amostras pequenas variam muito.</p></div></div>
   <div class="form-section"><h2 class="h3">Revise seus raciocínios</h2><div class="review" id="reviewList" aria-label="Revisão das questões da sessão"></div></div>
-  <div class="form-section"><h2 class="h3">Leve os resultados para análise por IA</h2><p class="muted small">O aplicativo calcula acertos localmente. A IA pode interpretar justificativas, padrões e limitações, sem emitir QI ou diagnósticos.</p><p class="analysis-notice" role="note"><strong>Laudo técnico para pesquisa.</strong> Não é avaliação clínica e não estima QI, percentil ou diagnóstico. Nada é enviado sem o seu clique.</p><div class="form-actions"><button id="downloadBtn" class="btn btn-outline" type="button">Baixar relatório JSON ↓</button><button id="copyBtn" class="btn btn-primary" type="button">Copiar análise para ChatGPT ↗</button><button id="apiBtn" class="btn btn-dark" type="button">Analisar via API ✧</button><button id="analysisDownloadBtn" class="btn btn-outline hide" type="button">Baixar análise JSON ↓</button></div><p id="apiStatus" class="muted small" role="status" aria-live="polite">A análise automática exige backend publicado com uma chave de API segura.</p>
+  <div class="form-section"><h2 class="h3">Leve os resultados para análise por IA</h2><p class="muted small">O aplicativo calcula acertos localmente. A IA pode interpretar justificativas, padrões e limitações, sem emitir QI ou diagnósticos.</p><p class="analysis-notice" role="note"><strong>Laudo técnico para pesquisa.</strong> Não é avaliação clínica e não estima QI, percentil ou diagnóstico. Nada é enviado sem o seu clique.</p>
+    <fieldset class="consent-box">
+      <legend>Enviar também meus comentários escritos</legend>
+      <p class="small" id="reasoningConsentHelp">Seus comentários podem conter dados pessoais que você digitou (nome, escola, saúde). Se você marcar, eles serão enviados ao provedor de IA junto com suas escolhas, acertos e confiança, apenas para gerar esta análise. O Cognitiva não controla a retenção do provedor. Sem marcar, a análise usa apenas escolhas, confiança e acertos. Versão do consentimento: <span id="consentVersionLabel">consent-1.0.0</span>.</p>
+      <label class="consent-check" for="reasoningConsent"><input type="checkbox" id="reasoningConsent" aria-describedby="reasoningConsentHelp" /> Autorizo o envio dos meus comentários</label>
+      <p id="consentState" class="tiny muted" role="status" aria-live="polite">Sem autorização, seus comentários não são enviados ao servidor de análise.</p>
+    </fieldset>
+    <div class="form-actions"><button id="downloadBtn" class="btn btn-outline" type="button">Baixar relatório JSON ↓</button><button id="copyBtn" class="btn btn-primary" type="button">Copiar análise para ChatGPT ↗</button><button id="apiBtn" class="btn btn-dark" type="button">Analisar via API ✧</button><button id="analysisDownloadBtn" class="btn btn-outline hide" type="button">Baixar análise JSON ↓</button></div><p id="apiStatus" class="muted small" role="status" aria-live="polite">A análise automática exige backend publicado com uma chave de API segura.</p>
     <section id="aiReport" class="analysis-report hide" tabindex="-1" aria-labelledby="aiReportTitle">
       <h3 id="aiReportTitle">Laudo técnico</h3>
       <p class="analysis-notice" role="note">Audiência de pesquisa. Não é avaliação clínica e não estima QI, percentil ou diagnóstico.</p>
@@ -60,6 +67,15 @@
       <ul id="aiLimitations" class="analysis-list" aria-labelledby="aiLimitationsTitle"></ul>
       <h4 class="analysis-subtitle" id="aiRefusedTitle">O que a análise recusou</h4>
       <ul id="aiRefused" class="analysis-list" aria-labelledby="aiRefusedTitle"></ul>
+    </section>
+    <section id="aiParticipant" class="analysis-report analysis-participant hide" tabindex="-1" aria-labelledby="aiParticipantTitle">
+      <p class="analysis-preview-badge" id="aiParticipantBadge">Prévia interna — não é devolutiva oficial</p>
+      <h3 id="aiParticipantTitle">Prévia interna da devolutiva</h3>
+      <p class="analysis-notice" role="note">Derivada do laudo técnico acima. Não substitui avaliação profissional e não é devolutiva oficial.</p>
+      <div id="aiParticipantSections"></div>
+      <h4 class="analysis-subtitle" id="aiExercisesTitle">Exercícios descritos</h4>
+      <ul id="aiExercises" class="analysis-list" aria-labelledby="aiExercisesTitle"></ul>
+      <p id="aiParticipantClosing" class="analysis-closing"></p>
     </section>
   </div>
   <div class="form-actions"><button id="againBtn" class="btn btn-primary" type="button">Nova avaliação ↻</button></div>

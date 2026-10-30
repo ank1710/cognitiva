@@ -101,3 +101,17 @@ input[type=range]{min-height:44px}
 .analysis-list li{margin-bottom:4px}
 .analysis-insufficient{background:#fff4e2;border:1px solid #f0d3a6;border-radius:10px;padding:12px 15px;font-size:13px;line-height:1.6;color:#6b3a00;margin:12px 0}
 @media(max-width:420px){.analysis-report{padding:16px}.analysis-meta{grid-template-columns:1fr}}
+
+/* v5 opt-in e prévia da devolutiva (T012) */
+.consent-box{border:1px solid var(--line);border-radius:12px;background:#fbfcff;margin:14px 0 4px;padding:14px 16px}
+.consent-box legend{font-weight:750;font-size:14px;padding:0 6px;color:var(--ink)}
+.consent-box p{margin:0 0 10px}
+.consent-check{display:flex;align-items:center;gap:10px;min-height:44px;font-size:13px;font-weight:650;color:var(--ink);cursor:pointer}
+.consent-check input{width:20px;height:20px;accent-color:var(--blue);flex:0 0 auto}
+.analysis-preview-badge{display:inline-block;background:#fff4e2;border:1px solid #f0d3a6;color:#6b3a00;border-radius:50px;padding:4px 12px;font-size:12px;font-weight:800;letter-spacing:.3px;margin:0 0 10px}
+.analysis-participant .participant-section{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.analysis-participant .participant-section:first-child{border-top:0;padding-top:0;margin-top:0}
+.analysis-participant .participant-section p{font-size:14px;line-height:1.65;color:var(--ink);margin:0}
+.participant-dimension{display:inline-block;background:#eef1f8;border-radius:6px;padding:1px 7px;font-size:12px;color:var(--slate)}
+.participant-why{color:var(--slate);font-size:12px}
+.analysis-closing{border-top:1px solid var(--line);margin:16px 0 0;padding-top:12px;font-size:12px;color:var(--slate)}
