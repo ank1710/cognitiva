@@ -11,6 +11,10 @@ export const KEYS = Object.freeze({
   exposure: 'cognitiva_v2_exposure',
   history: 'cognitiva_v2_history'
 });
+/** Sufixo das cópias de dados suspeitos. `clearAll` precisa apagá-las também:
+ * sem isso, "Apagar meus dados" deixaria o conteúdo bruto no navegador. */
+export const ISOLATED_SUFFIX = '__isolated';
+export const isolatedKey = key => `${key}${ISOLATED_SUFFIX}`;
 const DOMAIN_IDS = new Set(DIMENSIONS.map(d => d.id));
 const SIZES = new Set(Object.values(TIERS));
 const CHOICES = new Set([0, 1, 2, 3]);
@@ -93,7 +97,7 @@ export function createStore(storage = globalThis.localStorage) {
 
   const isolate = (key, raw, code) => {
     record(code, key);
-    try { storage.setItem(`${key}__isolated`, String(raw).slice(0, 20000)); } catch { /* isolamento é melhor esforço */ }
+    try { storage.setItem(isolatedKey(key), String(raw).slice(0, 20000)); } catch { /* isolamento é melhor esforço */ }
     try { storage.removeItem(key); } catch { /* leitura seguirá com o fallback */ }
   };
 
@@ -118,7 +122,21 @@ export function createStore(storage = globalThis.localStorage) {
     }
   };
 
-  const remove = key => { try { storage?.removeItem(key); } catch { /* já removido ou bloqueado */ } };
+  const remove = key => {
+    if (!storage) return false;
+    try { storage.removeItem(key); return true; } catch { return false; }
+  };
+
+  /** Apaga as cópias isoladas das chaves conhecidas. Devolve as chaves que
+   * foram realmente removidas. Chaves de terceiros nunca são tocadas. */
+  const purgeIsolated = (keys = Object.values(KEYS)) => {
+    const removed = [];
+    for (const key of keys) {
+      const copy = isolatedKey(key);
+      if (remove(copy)) removed.push(copy);
+    }
+    return removed;
+  };
 
   const readSession = () => {
     const decoded = decode(KEYS.session);
@@ -153,7 +171,12 @@ export function createStore(storage = globalThis.localStorage) {
     saveHistory: list => write(KEYS.history, sanitizeHistory(list)),
     saveExposure: list => write(KEYS.exposure, sanitizeExposure(list)),
     clearSession: () => remove(KEYS.session),
-    clearAll: () => Object.values(KEYS).forEach(remove),
+    purgeIsolated,
+    clearAll: () => {
+      const removed = purgeIsolated();
+      for (const key of Object.values(KEYS)) if (remove(key)) removed.push(key);
+      return removed;
+    },
     isAvailable: () => {
       if (!storage) return false;
       const probe = '__cognitiva_probe__';
