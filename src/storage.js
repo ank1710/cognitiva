@@ -6,6 +6,9 @@
 import { TIERS, DIMENSIONS } from './engine.js';
 
 export const STORAGE_VERSION = 2;
+/** Retenção local: sessão, exposição e entradas de histórico expiram em 90 dias. */
+export const RETENTION_DAYS = 90;
+const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
 export const KEYS = Object.freeze({
   session: 'cognitiva_v2_session',
   exposure: 'cognitiva_v2_exposure',
@@ -86,7 +89,7 @@ export function sanitizeExposure(value) {
   return [...new Set(value.filter(id => typeof id === 'string' && id.length > 0 && id.length < 200))].slice(-MAX_EXPOSURE);
 }
 
-export function createStore(storage = globalThis.localStorage) {
+export function createStore(storage = globalThis.localStorage, { now = () => Date.now() } = {}) {
   const issues = [];
   const record = (code, key) => { issues.push({ code, key }); return issues[issues.length - 1]; };
 
@@ -106,8 +109,10 @@ export function createStore(storage = globalThis.localStorage) {
     if (raw === undefined || raw === null) return { present: false };
     let parsed;
     try { parsed = JSON.parse(raw); } catch { isolate(key, raw, 'invalid-json'); return { present: false, corrupt: true }; }
-    const value = isObject(parsed) && parsed.__cognitiva === STORAGE_VERSION ? parsed.data : parsed;
-    return { present: true, value, raw, legacy: !(isObject(parsed) && parsed.__cognitiva === STORAGE_VERSION) };
+    const versioned = isObject(parsed) && parsed.__cognitiva === STORAGE_VERSION;
+    const savedAt = versioned && typeof parsed.savedAt === 'string' ? parsed.savedAt : null;
+    const value = versioned ? parsed.data : parsed;
+    return { present: true, value, raw, savedAt, legacy: !versioned || !savedAt };
   };
 
   const write = (key, value) => {
@@ -138,9 +143,28 @@ export function createStore(storage = globalThis.localStorage) {
     return removed;
   };
 
+  const isExpired = savedAt => {
+    if (!savedAt) return false;
+    const saved = Date.parse(savedAt);
+    return Number.isFinite(saved) && now() - saved > RETENTION_MS;
+  };
+
+  const expire = key => {
+    remove(key);
+    remove(isolatedKey(key));
+    record('expired', key);
+  };
+
+  const isOldEntry = entry => {
+    const date = typeof entry?.date === 'string' ? Date.parse(entry.date) : NaN;
+    return Number.isFinite(date) && now() - date > RETENTION_MS;
+  };
+
   const readSession = () => {
     const decoded = decode(KEYS.session);
     if (!decoded.present) return null;
+    if (decoded.legacy) record('legacy', KEYS.session);
+    if (isExpired(decoded.savedAt)) { expire(KEYS.session); return null; }
     const { session, repaired } = sanitizeSession(decoded.value);
     if (!session) { isolate(KEYS.session, decoded.raw, 'invalid-session'); return null; }
     if (repaired || decoded.legacy) record(repaired ? 'session-repaired' : 'session-legacy', KEYS.session);
@@ -150,14 +174,27 @@ export function createStore(storage = globalThis.localStorage) {
   const readHistory = () => {
     const decoded = decode(KEYS.history);
     if (!decoded.present) return [];
-    const list = sanitizeHistory(decoded.value);
+    if (decoded.legacy) record('legacy', KEYS.history);
     if (!Array.isArray(decoded.value)) { isolate(KEYS.history, decoded.raw, 'invalid-history'); return []; }
-    return list;
+    const kept = decoded.value.filter(entry => !isOldEntry(entry));
+    if (kept.length !== decoded.value.length) {
+      record('expired', KEYS.history);
+      // Persiste só o que sobrou: expirar não pode depender da próxima gravação.
+      if (kept.length === 0) {
+        remove(KEYS.history);
+        remove(isolatedKey(KEYS.history));
+      } else {
+        write(KEYS.history, sanitizeHistory(kept));
+      }
+    }
+    return sanitizeHistory(kept);
   };
 
   const readExposure = () => {
     const decoded = decode(KEYS.exposure);
     if (!decoded.present) return [];
+    if (decoded.legacy) record('legacy', KEYS.exposure);
+    if (isExpired(decoded.savedAt)) { expire(KEYS.exposure); return []; }
     if (!Array.isArray(decoded.value)) { isolate(KEYS.exposure, decoded.raw, 'invalid-exposure'); return []; }
     return sanitizeExposure(decoded.value);
   };

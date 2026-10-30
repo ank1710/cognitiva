@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildForm } from '../src/engine.js';
-import { createStore, KEYS, STORAGE_VERSION, isolatedKey, sanitizeHistory, sanitizeExposure } from '../src/storage.js';
+import { createStore, KEYS, STORAGE_VERSION, RETENTION_DAYS, isolatedKey, sanitizeHistory, sanitizeExposure } from '../src/storage.js';
 
 function fakeStorage(initial = {}, { failWrite = false, failRead = false, failRemove = false } = {}) {
   const map = new Map(Object.entries(initial));
@@ -44,7 +44,8 @@ test('estrutura incompatível é isolada em vez de derrubar a sessão', () => {
   const storage = fakeStorage({ [KEYS.session]: JSON.stringify({ __cognitiva: STORAGE_VERSION, data: { form: { items: [{ id: 'x' }] }, index: 0, answers: {}, startedAt: 'x' } }) });
   const store = createStore(storage);
   assert.equal(store.readSession(), null);
-  assert.equal(store.issues[0].code, 'invalid-session');
+  assert.ok(store.issues.some(issue => issue.code === 'invalid-session'));
+  assert.ok(store.issues.some(issue => issue.code === 'legacy'));
   assert.equal(storage.map.has(`${KEYS.session}__isolated`), true);
 });
 
@@ -178,4 +179,84 @@ test('clearAll sem storage disponível não lança', () => {
   const store = createStore(null);
   assert.doesNotThrow(() => store.clearAll());
   assert.deepEqual(store.clearAll(), []);
+});
+
+/* ------------------------------------------------------- retenção (T016) */
+const NOW = Date.parse('2026-10-30T12:00:00Z');
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysAgo = days => new Date(NOW - days * DAY_MS).toISOString();
+const envelopeAt = (savedAt, data) => JSON.stringify({ __cognitiva: STORAGE_VERSION, savedAt, data });
+
+test('retenção configurada em 90 dias', () => {
+  assert.equal(RETENTION_DAYS, 90);
+});
+
+test('sessão de 91 dias é removida com issue expired, inclusive a cópia isolada', () => {
+  const storage = fakeStorage({
+    [KEYS.session]: envelopeAt(daysAgo(91), makeSession()),
+    [isolatedKey(KEYS.session)]: 'cópia antiga'
+  });
+  const store = createStore(storage, { now: () => NOW });
+  assert.equal(store.readSession(), null);
+  assert.equal(storage.map.has(KEYS.session), false);
+  assert.equal(storage.map.has(isolatedKey(KEYS.session)), false);
+  assert.ok(store.issues.some(issue => issue.code === 'expired' && issue.key === KEYS.session));
+});
+
+test('sessão de 89 dias é preservada', () => {
+  const session = makeSession(19);
+  const storage = fakeStorage({ [KEYS.session]: envelopeAt(daysAgo(89), session) });
+  const store = createStore(storage, { now: () => NOW });
+  assert.deepEqual(store.readSession(), session);
+  assert.equal(storage.map.has(KEYS.session), true);
+  assert.equal(store.issues.some(issue => issue.code === 'expired'), false);
+});
+
+test('histórico misto mantém os recentes e remove só os antigos', () => {
+  const recent = { date: daysAgo(10), tier: 'screening', tierName: 'Exploratória', total: 20, correct: 8 };
+  const old = { date: daysAgo(120), tier: 'screening', tierName: 'Exploratória', total: 20, correct: 4 };
+  const storage = fakeStorage({ [KEYS.history]: envelopeAt(daysAgo(1), [old, recent]) });
+  const store = createStore(storage, { now: () => NOW });
+  const history = store.readHistory();
+  assert.equal(history.length, 1);
+  assert.equal(history[0].date, recent.date);
+  assert.ok(store.issues.some(issue => issue.code === 'expired' && issue.key === KEYS.history));
+  assert.equal(storage.map.has(KEYS.history), true);
+  const persisted = JSON.parse(storage.map.get(KEYS.history));
+  assert.equal(persisted.data.length, 1);
+  assert.equal(persisted.data[0].date, recent.date);
+});
+
+test('exposição de 91 dias é removida e a de 89 dias fica', () => {
+  const expiredStorage = fakeStorage({ [KEYS.exposure]: envelopeAt(daysAgo(91), ['a', 'b']) });
+  const expired = createStore(expiredStorage, { now: () => NOW });
+  assert.deepEqual(expired.readExposure(), []);
+  assert.equal(expiredStorage.map.has(KEYS.exposure), false);
+  assert.ok(expired.issues.some(issue => issue.code === 'expired'));
+
+  const keptStorage = fakeStorage({ [KEYS.exposure]: envelopeAt(daysAgo(89), ['a', 'b']) });
+  const kept = createStore(keptStorage, { now: () => NOW });
+  assert.deepEqual(kept.readExposure(), ['a', 'b']);
+  assert.equal(kept.issues.some(issue => issue.code === 'expired'), false);
+});
+
+test('envelope sem savedAt não expira e registra issue legacy', () => {
+  const session = makeSession(23);
+  const storage = fakeStorage({ [KEYS.session]: JSON.stringify(session) });
+  const store = createStore(storage, { now: () => NOW });
+  assert.notEqual(store.readSession(), null);
+  assert.equal(storage.map.has(KEYS.session), true);
+  assert.ok(store.issues.some(issue => issue.code === 'legacy' && issue.key === KEYS.session));
+  assert.equal(store.issues.some(issue => issue.code === 'expired'), false);
+});
+
+test('clearAll continua funcionando depois de uma expiração', () => {
+  const storage = fakeStorage({
+    [KEYS.session]: envelopeAt(daysAgo(91), makeSession()),
+    [KEYS.history]: envelopeAt(daysAgo(1), [])
+  });
+  const store = createStore(storage, { now: () => NOW });
+  store.readSession();
+  assert.doesNotThrow(() => store.clearAll());
+  assert.equal(storage.map.size, 0);
 });

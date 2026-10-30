@@ -167,6 +167,8 @@ export function buildAnalysisView(outcome) {
  * navegador). Deve ser atualizada junto com o texto de index.html. */
 export const CONSENT_TEXT_VERSION = 'consent-1.0.0';
 export const PREVIEW_LABEL = 'Prévia interna — não é devolutiva oficial';
+/** Aviso único de retenção; o texto é estável para teste e para leitores de tela. */
+export const EXPIRED_NOTICE = 'Dados com mais de 90 dias foram apagados automaticamente.';
 
 /* ---------------------------------------------------------------------------
  * Convite do piloto
@@ -299,6 +301,7 @@ export function initApp() {
   function storageAvailable() {if (storageChecked === null) storageChecked = store.isAvailable(); return storageChecked;}
   function reportStorageIssues() {
     const issues = store.issues.map(i => i.code);
+    if (issues.includes('expired')) return notice(EXPIRED_NOTICE);
     if (issues.includes('invalid-json') || issues.includes('invalid-session')) return notice('Uma sessão salva não pôde ser lida e foi isolada (cópia em ' + KEYS.session + '__isolated). Você pode começar uma nova avaliação.');
     if (issues.includes('quota') || issues.includes('write-failed')) return notice('O navegador não permitiu salvar. A avaliação continua nesta aba, mas pode ser perdida ao fechar.');
     if (!storageAvailable()) return notice('Este navegador está com o armazenamento local bloqueado. Você pode fazer a avaliação, mas nada será salvo se a página fechar.');
