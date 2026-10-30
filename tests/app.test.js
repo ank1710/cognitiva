@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadCatalog, buildAnalysisView, buildParticipantView, evidenceLabel, modeLabel, CONSENT_TEXT_VERSION, PREVIEW_LABEL, INVITE_STORAGE_KEY, parseInviteHash, isValidInviteToken, readStoredInvite, storeInvite, clearStoredInvite, retryMessage } from '../src/app.js';
+import { loadCatalog, buildAnalysisView, buildParticipantView, evidenceLabel, modeLabel, CONSENT_TEXT_VERSION, PREVIEW_LABEL, INVITE_STORAGE_KEY, parseInviteHash, isValidInviteToken, readStoredInvite, storeInvite, clearStoredInvite, retryMessage, EXPIRED_NOTICE } from '../src/app.js';
 
 const response = body => ({ ok: true, json: async () => body });
 
@@ -221,4 +221,9 @@ test('formato do convite aceita URL-safe e rejeita fragmentos estranhos', () => 
   assert.equal(isValidInviteToken(parseInviteHash('#convite=!!!')), false);
   assert.equal(isValidInviteToken(parseInviteHash('#convite=convite-teste')), true);
   assert.equal(isValidInviteToken(parseInviteHash('#convite=')), false);
+});
+
+test('aviso de retenção informa os 90 dias sem depender de foco', () => {
+  assert.equal(EXPIRED_NOTICE, 'Dados com mais de 90 dias foram apagados automaticamente.');
+  assert.match(EXPIRED_NOTICE, /90 dias/);
 });
