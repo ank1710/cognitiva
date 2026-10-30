@@ -1,0 +1,36 @@
+name: check
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: testes, auditoria e catálogo
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          # Sem package-lock.json, `cache: npm` falharia por falta de lockfile.
+          # O projeto não tem dependências, então não há cache nem npm install.
+
+      - name: Testes e auditoria
+        run: npm run check
+
+      - name: Catálogo versionado
+        run: node scripts/check-catalog.js
