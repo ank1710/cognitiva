@@ -1,4 +1,5 @@
 import {VERSION,TIERS,DIMENSIONS,buildForm,grade,exportReport} from './engine.js';
+import {requestAnalysis} from './analysis.js';
 const $=id=>document.getElementById(id);
 const KEYS={session:'cognitiva_v2_session',seen:'cognitiva_v2_exposure',history:'cognitiva_v2_history'};
 const safeRead=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
@@ -65,7 +66,7 @@ function renderResults(){const score=grade(session.form,session.answers),total=s
  $('confidenceSummary').innerHTML=`<p class="small">${score.meanConfidence===null?'Você não registrou confiança.':`Confiança média de ${Math.round(score.meanConfidence)}%. A diferença para a taxa de acertos foi de ${Math.round(score.confidenceGap)} pontos percentuais.`}</p><p class="small">${score.brier===null?'O Brier Score não pôde ser calculado.':`Brier Score: ${score.brier.toFixed(3)} (menor é melhor, nesta amostra).`}</p>`;
  $('reviewList').innerHTML=score.entries.map((e,i)=>`<details><summary>${String(i+1).padStart(2,'0')} · ${esc(e.question)} — ${e.selected===null?'Não respondida':e.correct?'Correta':'Incorreta'}</summary><p><strong>Contexto:</strong> ${esc(e.context)}</p><p><strong>Resposta:</strong> ${e.selected===null?'—':esc(e.options[e.selected])}</p><p><strong>Correta:</strong> ${esc(e.options[e.answer])}</p><p><strong>Explicação:</strong> ${esc(e.explanation)}</p>${e.reasoning?`<p><strong>Seu raciocínio:</strong> ${esc(e.reasoning)}</p>`:''}</details>`).join('');
 }
-async function analyze(){const btn=$('apiBtn');btn.disabled=true;$('apiStatus').textContent='Solicitando análise. Nenhum dado é enviado sem esta ação.';try{const resp=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({results:result()})});const body=await resp.json();if(!resp.ok)throw Error(body.error||'API indisponível');$('aiResult').textContent=body.analysis;$('aiResult').classList.remove('hide');$('apiStatus').textContent='Análise interpretativa concluída. Não é avaliação clínica.';}catch(e){ $('apiStatus').textContent=`Indisponível: ${e.message}. Use Copiar análise para ChatGPT.`;}finally{btn.disabled=false;}}
+async function analyze(){const btn=$('apiBtn');btn.disabled=true;$('apiStatus').textContent='Solicitando análise. Nenhum dado é enviado sem esta ação.';const outcome=await requestAnalysis(result());if(outcome.ok){$('aiResult').textContent=outcome.analysis;$('aiResult').classList.remove('hide');$('apiStatus').textContent=outcome.message;}else{$('apiStatus').textContent=outcome.message;}btn.disabled=false;}
 $('homeLink').onclick=e=>{e.preventDefault();toHome()};
 $('startBtn').onclick=()=>start(true);$('resumeBtn').onclick=()=>start(false);
 document.querySelectorAll('[data-tier]').forEach(btn=>btn.onclick=()=>{tier=btn.dataset.tier;document.querySelectorAll('[data-tier]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)))});

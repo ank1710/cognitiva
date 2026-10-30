@@ -1,0 +1,81 @@
+/** Cliente da análise opcional por IA.
+ * Nenhum dado sai do navegador sem uma chamada explícita a requestAnalysis.
+ * Falhas de rede, respostas não JSON e códigos de erro do servidor viram
+ * mensagens em português, nunca exceções com stack para a interface.
+ */
+export const ANALYSIS_MESSAGES = Object.freeze({
+  unsupported: 'Análise automática não está disponível neste navegador. Use Copiar análise para ChatGPT.',
+  timeout: 'A análise demorou mais que o esperado e foi cancelada. Seus resultados continuam salvos; tente de novo ou use Copiar análise para ChatGPT.',
+  network: 'Não foi possível falar com o servidor de análise. Verifique a conexão e tente de novo; seus resultados continuam salvos neste dispositivo.',
+  method: 'Este servidor não aceita análise automática (método não permitido). Use Copiar análise para ChatGPT.',
+  unconfigured: 'A análise automática ainda não está configurada no servidor. Use Copiar análise para ChatGPT.',
+  'rate-limit': 'O limite de uso da análise automática foi atingido. Tente mais tarde ou use Copiar análise para ChatGPT.',
+  'invalid-payload': 'O relatório enviado não foi aceito pelo servidor. Baixe o JSON e confira se a sessão está completa.',
+  'too-large': 'O relatório é grande demais para a análise automática. Use Copiar análise para ChatGPT com o JSON baixado.',
+  'invalid-response': 'O servidor respondeu em um formato inesperado. Nada foi perdido; use Copiar análise para ChatGPT.',
+  'server-error': 'O serviço de análise não conseguiu processar a solicitação. Tente de novo mais tarde.',
+  empty: 'A análise voltou vazia. Tente de novo ou use Copiar análise para ChatGPT.'
+});
+
+const failure = (code, status = null, detail = null) => ({
+  ok: false,
+  status,
+  code,
+  message: ANALYSIS_MESSAGES[code] || ANALYSIS_MESSAGES['server-error'],
+  ...(detail ? { detail: String(detail).slice(0, 300) } : {})
+});
+
+function codeForStatus(status) {
+  if (status === 405) return 'method';
+  if (status === 503) return 'unconfigured';
+  if (status === 429) return 'rate-limit';
+  if (status === 413) return 'too-large';
+  if (status === 400) return 'invalid-payload';
+  return 'server-error';
+}
+
+export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, signal } = {}) {
+  const doFetch = fetchImpl !== undefined ? fetchImpl : (typeof fetch === 'function' ? fetch : null);
+  if (!doFetch) return failure('unsupported');
+  if (!result || typeof result !== 'object') return failure('invalid-payload');
+
+  const Controller = typeof AbortController === 'function' ? AbortController : null;
+  const controller = Controller ? new Controller() : null;
+  const abort = () => controller?.abort();
+  if (signal?.aborted) abort();
+  else signal?.addEventListener?.('abort', abort, { once: true });
+
+  let timedOut = false;
+  const timer = controller && timeoutMs > 0 ? setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs) : null;
+  let response;
+  try {
+    response = await doFetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ results: result }),
+      ...(controller ? { signal: controller.signal } : {})
+    });
+  } catch (error) {
+    if (timer) clearTimeout(timer);
+    return failure(timedOut ? 'timeout' : 'network');
+  } finally {
+    if (timer) clearTimeout(timer);
+    signal?.removeEventListener?.('abort', abort);
+  }
+
+  const status = Number(response?.status) || 0;
+  let raw = '';
+  try { raw = await response.text(); } catch { raw = ''; }
+  let body = null;
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+
+  if (!response?.ok) {
+    const code = codeForStatus(status);
+    const detail = body && typeof body === 'object' ? body.error || body.message : null;
+    return failure(code, status, detail || (raw ? raw.slice(0, 120) : null));
+  }
+  if (!body || typeof body !== 'object' || typeof body.analysis !== 'string' || !body.analysis.trim()) {
+    return failure('invalid-response', status || null);
+  }
+  return { ok: true, status, code: 'ok', analysis: body.analysis.trim(), message: 'Análise interpretativa concluída. Não é avaliação clínica.' };
+}
