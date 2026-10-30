@@ -109,3 +109,22 @@ test('POST com fingerprint desatualizado devolve 409 stale-report', async () => 
     delete process.env.OPENAI_API_KEY;
   }
 });
+
+test('POST com opt-in de justificativas e versão divergente devolve 400 consent-invalid', async () => {
+  process.env.OPENAI_API_KEY = 'sk-teste-local';
+  try {
+    await withServer(async base => {
+      const res = await fetch(`${base}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results: results20, reasoningAuthorized: true, consentTextVersion: 'consent-0.9.0' })
+      });
+      assert.equal(res.status, 400);
+      const body = await res.json();
+      assert.equal(body.code, 'consent-invalid');
+      assert.equal(body.fallback, 'copy-prompt');
+    });
+  } finally {
+    delete process.env.OPENAI_API_KEY;
+  }
+});

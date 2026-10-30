@@ -8,7 +8,9 @@ import {
   RUBRIC_VERSION,
   PROMPT_VERSION,
   SCHEMA_VERSION,
-  MAX_COMPACT_LENGTH
+  MAX_COMPACT_LENGTH,
+  CONSENT_TEXT_VERSION,
+  BLOCKED_CLOSING
 } from '../src/analyze-core.js';
 
 const DIMENSIONS = ['fluid', 'quant', 'verbal', 'spatial', 'systems'];
@@ -69,7 +71,17 @@ const goodTechnical = (overrides = {}) => ({
   ...overrides
 });
 
-const envelope = technical => ({ schemaVersion: SCHEMA_VERSION, technical });
+const goodParticipant = (overrides = {}) => ({
+  audience: 'participant',
+  releaseStatus: 'blocked',
+  signedBy: null,
+  derivedFromClaims: ['C1'],
+  sections: [{ title: 'O que a sessão mostrou', text: 'Acertou 3 de 4 itens.', sourceClaimIds: ['C1'] }],
+  exercises: [],
+  closing: BLOCKED_CLOSING,
+  ...overrides
+});
+const envelope = (technical, participant = goodParticipant()) => ({ schemaVersion: SCHEMA_VERSION, technical, participant });
 
 const okFetch = payload => async () => ({
   ok: true,
@@ -105,6 +117,11 @@ test('bloco E não carrega justificativa, enunciado nem PII (AC-10)', () => {
   assert.equal(evidence.consent.scope, 'none');
   assert.equal(evidence.consent.reasoningIncluded, false);
   assert.equal(evidence.items[0].reasoningChars, 'Fulano estuda na escola municipal X.'.length);
+  const authorized = buildEvidence(report, { reasoningAuthorized: true, consentTextVersion: CONSENT_TEXT_VERSION }).evidence;
+  assert.equal(authorized.consent.reasoningIncluded, true);
+  assert.equal(authorized.consent.scope, 'full_text');
+  assert.equal(authorized.consent.consentTextVersion, CONSENT_TEXT_VERSION);
+  assert.equal(authorized.items[0].reasoning, 'Fulano estuda na escola municipal X.');
 });
 
 test('sessão com menos de 10 respostas vira insufficient sem chamar o provedor (AC-5)', async () => {
@@ -342,4 +359,155 @@ test('validateAnalysis aceita laudo técnico completo e recusa schema desconheci
   const bad = validateAnalysis({ schemaVersion: 'analysis-1', technical: goodTechnical() }, evidence);
   assert.equal(bad.ok, false);
   assert.match(bad.errors.join(' '), /schemaVersion/);
+});
+
+/* ------------------------------------------------- F2a: participant e opt-in */
+
+test('participant deriva das claims e o servidor decide blocked (AC-11, AC-13)', async () => {
+  const r = await run(makeReport(), envelope(goodTechnical()));
+  assert.equal(r.status, 200);
+  const participant = r.body.participant;
+  assert.equal(participant.audience, 'participant');
+  assert.equal(participant.releaseStatus, 'blocked');
+  assert.equal(participant.signedBy, null);
+  assert.equal(participant.closing, BLOCKED_CLOSING);
+  assert.ok(participant.sections.length > 0);
+  const claimIds = new Set(r.body.technical.claims.map(claim => claim.id));
+  for (const id of participant.derivedFromClaims) assert.ok(claimIds.has(id), `claim ${id}`);
+  for (const section of participant.sections) {
+    assert.ok(section.sourceClaimIds.length > 0);
+    for (const id of section.sourceClaimIds) assert.ok(claimIds.has(id));
+  }
+});
+
+test('modelo tentando marcar ready é rebaixado para blocked (AC-13)', async () => {
+  const r = await run(makeReport(), envelope(goodTechnical(), goodParticipant({ releaseStatus: 'ready', signedBy: 'Dra. Exemplo' })));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.participant.releaseStatus, 'blocked');
+  assert.equal(r.body.participant.signedBy, null);
+});
+
+test('participant com sourceClaimIds inexistente rejeita a devolutiva (AC-11)', async () => {
+  const r = await run(makeReport(), envelope(goodTechnical(), goodParticipant({
+    sections: [{ title: 'Resumo', text: 'Acertou 3 de 4 itens.', sourceClaimIds: ['C9'] }]
+  })));
+  assert.equal(r.status, 422);
+  assert.match(r.body.detail, /sourceClaimIds inexistente/);
+});
+
+test('participant com número fora da claim citada é rejeitado (AC-12)', async () => {
+  const r = await run(makeReport(), envelope(goodTechnical(), goodParticipant({
+    sections: [{ title: 'Resumo', text: 'Acertou 7 de 4 itens.', sourceClaimIds: ['C1'] }]
+  })));
+  assert.equal(r.status, 422);
+  assert.match(r.body.detail, /número sem origem na claim citada: 7/);
+});
+
+test('participant com frase proibida é rejeitado', async () => {
+  const r = await run(makeReport(), envelope(goodTechnical(), goodParticipant({
+    sections: [{ title: 'Resumo', text: 'Isso indica QI elevado.', sourceClaimIds: ['C1'] }]
+  })));
+  assert.equal(r.status, 422);
+  assert.match(r.body.detail, /participant: expressão proibida: QI/);
+});
+
+test('sem opt-in o reasoning não entra em E nem no corpo enviado ao provedor', async () => {
+  const report = makeReport();
+  report.responses[0].reasoning = 'Meu nome é Fulano e estudo na escola X.';
+  let sentBody = null;
+  const capture = async (url, options) => {
+    sentBody = options.body;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ output: [{ content: [{ type: 'output_text', text: JSON.stringify(envelope(goodTechnical())) }] }] })
+    };
+  };
+  const r = await analyzeResults({ results: report }, { apiKey: 'k', model: 'gpt-test', fetchImpl: capture });
+  assert.equal(r.status, 200);
+  assert.doesNotMatch(sentBody, /Fulano/);
+  assert.equal(r.body.justificationConsent.authorized, false);
+  assert.equal(r.body.justificationConsent.scope, 'none');
+  assert.equal(r.body.justificationConsent.consentId, null);
+  assert.equal(r.body.reasoningStripped, true);
+  assert.doesNotMatch(JSON.stringify(r.body), /Fulano/);
+});
+
+test('com opt-in e versão correta o reasoning chega ao provedor e fica registrado', async () => {
+  const report = makeReport();
+  report.responses[0].reasoning = 'Meu nome é Fulano e estudo na escola X.';
+  let sentBody = null;
+  const capture = async (url, options) => {
+    sentBody = options.body;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ output: [{ content: [{ type: 'output_text', text: JSON.stringify(envelope(goodTechnical())) }] }] })
+    };
+  };
+  const r = await analyzeResults(
+    { results: report, reasoningAuthorized: true, consentTextVersion: CONSENT_TEXT_VERSION },
+    { apiKey: 'k', model: 'gpt-test', fetchImpl: capture }
+  );
+  assert.equal(r.status, 200);
+  assert.match(sentBody, /Fulano/);
+  assert.equal(r.body.justificationConsent.authorized, true);
+  assert.equal(r.body.justificationConsent.scope, 'full_text');
+  assert.equal(r.body.justificationConsent.consentTextVersion, CONSENT_TEXT_VERSION);
+  assert.match(r.body.justificationConsent.consentId, /^consent-/);
+  assert.equal(r.body.reasoningStripped, false);
+});
+
+test('opt-in com versão divergente devolve 400 consent-invalid sem chamar o provedor (AC-16)', async () => {
+  let called = false;
+  const r = await analyzeResults(
+    { results: makeReport(), reasoningAuthorized: true, consentTextVersion: 'consent-0.9.0' },
+    { apiKey: 'k', fetchImpl: async () => { called = true; } }
+  );
+  assert.equal(r.status, 400);
+  assert.equal(r.body.code, 'consent-invalid');
+  assert.equal(called, false);
+});
+
+test('opt-in sem consentTextVersion também é recusado (AC-16)', async () => {
+  const r = await analyzeResults({ results: makeReport(), reasoningAuthorized: true }, { apiKey: 'k', fetchImpl: async () => { throw new Error('não deveria chamar'); } });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.code, 'consent-invalid');
+});
+
+test('justificativa literal é rejeitada mesmo com opt-in autorizado (AC-10)', async () => {
+  const report = makeReport();
+  report.responses[0].reasoning = 'Fulano estuda na escola municipal X.';
+  const participant = goodParticipant({
+    sections: [{ title: 'Trecho', text: 'Fulano estuda na escola municipal X.', sourceClaimIds: ['C1'] }]
+  });
+  const r = await analyzeResults(
+    { results: report, reasoningAuthorized: true, consentTextVersion: CONSENT_TEXT_VERSION },
+    { apiKey: 'k', model: 'gpt-test', fetchImpl: okFetch(envelope(goodTechnical(), participant)) }
+  );
+  assert.equal(r.status, 422);
+  assert.match(r.body.detail, /justificativa literal/);
+});
+
+test('insufficient gera participant determinístico sem chamar o provedor', async () => {
+  let called = false;
+  const r = await analyzeResults({ results: makeReport({ answered: 8 }) }, { apiKey: 'k', fetchImpl: async () => { called = true; } });
+  assert.equal(called, false);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.mode, 'insufficient');
+  assert.equal(r.body.participant.releaseStatus, 'blocked');
+  assert.ok(r.body.participant.sections.length > 0);
+  assert.ok(r.body.participant.sections[0].text.length > 0);
+  assert.ok(r.body.participant.sections[0].sourceClaimIds.length > 0);
+  assert.equal(r.body.participant.exercises.length, 0);
+});
+
+test('devolutiva que copia o texto do laudo é rejeitada (AC-14)', async () => {
+  const technical = goodTechnical();
+  const participant = goodParticipant({
+    sections: [{ title: 'Cópia', text: technical.claims[0].text, sourceClaimIds: ['C1'] }]
+  });
+  const r = await run(makeReport(), envelope(technical, participant));
+  assert.equal(r.status, 422);
+  assert.match(r.body.detail, /repete o texto do laudo/);
 });

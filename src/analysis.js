@@ -15,6 +15,7 @@ export const ANALYSIS_MESSAGES = Object.freeze({
   'invalid-response': 'O servidor respondeu em um formato inesperado. Nada foi perdido; use Copiar análise para ChatGPT.',
   'invalid-schema': 'A análise voltou em um formato que não passou na validação da rubrica. Nada foi perdido; use Copiar análise para ChatGPT.',
   'stale-report': 'O relatório mudou depois do envio, então a análise foi descartada. Gere a análise novamente a partir do relatório atual.',
+  'consent-invalid': 'O consentimento para enviar justificativas não confere. Reabra o aviso, marque a autorização e tente de novo.',
   'server-error': 'O serviço de análise não conseguiu processar a solicitação. Tente de novo mais tarde.',
   empty: 'A análise voltou vazia. Tente de novo ou use Copiar análise para ChatGPT.'
 });
@@ -52,6 +53,12 @@ function schemaProblem(body) {
     if (typeof body[field] !== 'string' || !body[field]) return `${field} ausente`;
   }
   if (!body.dataFingerprint.startsWith('sha256:')) return 'dataFingerprint inválido';
+  const participant = body.participant;
+  if (!participant || typeof participant !== 'object') return 'participant ausente';
+  if (participant.audience !== 'participant') return 'participant.audience inválido';
+  if (participant.releaseStatus !== 'blocked' && participant.releaseStatus !== 'ready') return 'participant.releaseStatus inválido';
+  if (!Array.isArray(participant.sections) || !Array.isArray(participant.exercises)) return 'participant.sections/exercises ausente';
+  if (!Array.isArray(participant.derivedFromClaims)) return 'participant.derivedFromClaims ausente';
   if (typeof body.analysis !== 'string' || !body.analysis.trim()) return 'analysis ausente';
   return null;
 }
@@ -104,7 +111,7 @@ export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, si
 
     if (!response?.ok) {
       const reported = body && typeof body === 'object' ? body.code : null;
-      const code = reported === 'invalid-schema' || reported === 'stale-report' ? reported : codeForStatus(status);
+      const code = ['invalid-schema', 'stale-report', 'consent-invalid'].includes(reported) ? reported : codeForStatus(status);
       const detail = body && typeof body === 'object' ? body.detail || body.error || body.message : null;
       return failure(code, status, detail || (raw ? raw.slice(0, 120) : null));
     }
@@ -125,6 +132,7 @@ export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, si
       evidenceSnapshotId: body.evidenceSnapshotId,
       justificationConsent: body.justificationConsent,
       technical: body.technical,
+      participant: body.participant,
       message: 'Análise interpretativa concluída. Não é avaliação clínica.'
     };
   } finally {
