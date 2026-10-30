@@ -194,6 +194,14 @@ export function buildParticipantView(outcome) {
   return {
     badge: PREVIEW_LABEL,
     releaseStatus: participant.releaseStatus || 'blocked',
+    rubricVersion: typeof outcome?.rubricVersion === 'string' && outcome.rubricVersion ? outcome.rubricVersion : null,
+    model: typeof outcome?.model === 'string' && outcome.model ? outcome.model : null,
+    modelLabel: typeof outcome?.model === 'string' && outcome.model
+      ? (outcome.model === 'none' ? 'não utilizado (análise determinística)' : outcome.model)
+      : 'não informado',
+    previewNote: (participant.releaseStatus || 'blocked') === 'blocked'
+      ? 'Prévia: ainda não revisada por uma pessoa responsável.'
+      : null,
     sections,
     exercises,
     closing: typeof participant.closing === 'string' && participant.closing.trim() ? participant.closing.trim() : PREVIEW_LABEL
@@ -375,6 +383,10 @@ export function initApp() {
       return false;
     }
     $('aiParticipantBadge').textContent = view.badge;
+    $('aiRubricVersion').textContent = view.rubricVersion || '—';
+    $('aiModelName').textContent = view.modelLabel;
+    $('aiDisclosurePreview').textContent = view.previewNote || '';
+    $('aiDisclosurePreview').classList.toggle('hide', !view.previewNote);
     $('aiParticipantSections').innerHTML = view.sections.length
       ? view.sections.map(section => `<div class="participant-section"><h4 class="analysis-subtitle">${esc(section.title)}</h4><p>${esc(section.text)}</p></div>`).join('')
       : '<p class="small muted">Nenhuma seção foi gerada para esta prévia.</p>';

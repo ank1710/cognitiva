@@ -211,3 +211,29 @@ test('foco da prévia é visível no CSS e alvo do checkbox tem 44 px', () => {
   assert.match(css, /\.analysis-report:focus\{outline:3px solid #2f4bd8/);
   assert.match(css, /\.consent-check\{[^}]*min-height:44px/);
 });
+
+/* ------------------------------------------------- transparência IA (T013) */
+test('bloco de transparência é região rotulada e vem antes das seções da prévia', () => {
+  assert.match(html, /<section class="ai-disclosure" id="aiDisclosure" aria-labelledby="aiDisclosureTitle">/);
+  assert.match(html, /<h4 class="analysis-subtitle" id="aiDisclosureTitle">Transparência da análise<\/h4>/);
+  assert.ok(html.indexOf('id="aiDisclosure"') < html.indexOf('id="aiParticipantSections"'));
+});
+
+test('transparência declara IA, rubrica, modelo e limites clínicos', () => {
+  assert.match(html, /Análise gerada por IA a partir do seu relatório, com rubrica versionada \(<span id="aiRubricVersion">—<\/span>\) e base teórica declarada\./);
+  assert.match(html, /Modelo de IA usado: <span id="aiModelName">—<\/span>\./);
+  assert.match(html, /Não é avaliação clínica, não estima QI, percentil ou diagnóstico e não substitui avaliação profissional\./);
+  assert.match(html, /Prévia: ainda não revisada por uma pessoa responsável\./);
+});
+
+test('resumo da rubrica é disclosure nativo e não promete validade', () => {
+  assert.match(html, /<details class="ai-rubric-summary">/);
+  assert.match(html, /<summary>O que a rubrica cobre<\/summary>/);
+  assert.match(html, /Cada afirmação cita a evidência que a sustenta\./);
+  assert.match(html, /A rubrica não estabelece validade psicométrica nem comparação populacional\./);
+});
+
+test('transparência não cria região aria-live concorrente', () => {
+  const block = html.slice(html.indexOf('id="aiDisclosure"'), html.indexOf('id="aiParticipantSections"'));
+  assert.doesNotMatch(block, /aria-live/);
+});
