@@ -183,6 +183,12 @@ export function parseInviteHash(hash) {
   return token && token.trim() ? token.trim() : null;
 }
 
+/** Formato aceitável para o convite vindo da URL. Rejeita espaços, HTML e
+ * strings longas demais; não tenta adivinhar o token do servidor. */
+export function isValidInviteToken(token) {
+  return typeof token === 'string' && /^[A-Za-z0-9._~+/=-]{1,512}$/.test(token);
+}
+
 export function readStoredInvite(storage = globalThis.sessionStorage) {
   if (!storage) return null;
   try {
@@ -283,11 +289,6 @@ export function initApp() {
   const esc = escapeHtml;
   let tier = 'screening', session = store.readSession(), currentView = 'home', catalog = [];
   let lastAnalysis = null;
-  const linkedInvite = parseInviteHash(window.location.hash);
-  if (linkedInvite) {
-    storeInvite(window.sessionStorage, linkedInvite);
-    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* histórico indisponível */ }
-  }
   let invite = readStoredInvite(window.sessionStorage);
   let retryTimer = null;
   const catalogReady = loadCatalog();
@@ -480,10 +481,30 @@ export function initApp() {
       $('inviteStatus').textContent = 'A análise automática é um piloto por convite. Abra o link de convite para habilitar; o Copiar análise para ChatGPT continua disponível.';
       $('apiStatus').textContent = 'Sem convite, a análise automática fica desabilitada. O Copiar análise para ChatGPT continua ativo.';
     } else {
-      btn.disabled = false;
+      btn.disabled = Boolean(retryTimer);
       $('inviteStatus').textContent = 'Convite ativo nesta sessão.';
       $('apiStatus').textContent = 'A análise automática está disponível com o convite desta sessão.';
     }
+  }
+
+  /** Aplica o convite do fragmento. Roda na carga e em hashchange/pageshow,
+   * para cobrir navegação no mesmo documento. replaceState não dispara
+   * hashchange, então não há loop. Fragmento inválido preserva a URL e avisa. */
+  function applyInviteFromHash() {
+    const hash = window.location.hash;
+    const linked = parseInviteHash(hash);
+    const hasInviteParam = hash.startsWith('#') && new URLSearchParams(hash.slice(1)).has('convite');
+    if (linked && isValidInviteToken(linked)) {
+      storeInvite(window.sessionStorage, linked);
+      invite = linked;
+      try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* histórico indisponível */ }
+      updateInviteUi();
+      return true;
+    }
+    if (hasInviteParam) {
+      $('inviteStatus').textContent = 'Link de convite inválido. Confira o link recebido; o Copiar análise para ChatGPT continua disponível.';
+    }
+    return false;
   }
 
   /** Contagem regressiva do 429 baseada em relógio; reabilita no fim. */
@@ -597,6 +618,9 @@ export function initApp() {
     focusHeading('storageNotice');
   };
   updateInviteUi();
+  applyInviteFromHash();
+  window.addEventListener('hashchange', applyInviteFromHash);
+  window.addEventListener('pageshow', applyInviteFromHash);
   renderHome();
   if (session?.finishedAt) {renderResults(); show('result');}
   reportStorageIssues();
