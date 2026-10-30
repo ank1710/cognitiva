@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadCatalog, buildAnalysisView, buildParticipantView, evidenceLabel, modeLabel, CONSENT_TEXT_VERSION, PREVIEW_LABEL, INVITE_STORAGE_KEY, parseInviteHash, readStoredInvite, storeInvite, clearStoredInvite, retryMessage } from '../src/app.js';
+import { loadCatalog, buildAnalysisView, buildParticipantView, evidenceLabel, modeLabel, CONSENT_TEXT_VERSION, PREVIEW_LABEL, INVITE_STORAGE_KEY, parseInviteHash, isValidInviteToken, readStoredInvite, storeInvite, clearStoredInvite, retryMessage } from '../src/app.js';
 
 const response = body => ({ ok: true, json: async () => body });
 
@@ -209,4 +209,16 @@ test('mensagem de 429 informa a espera em segundos', () => {
   assert.match(retryMessage(14), /Aguarde 14 s/);
   assert.match(retryMessage(0), /em instantes/);
   assert.match(retryMessage('3'), /Aguarde 3 s/);
+});
+
+test('formato do convite aceita URL-safe e rejeita fragmentos estranhos', () => {
+  assert.equal(isValidInviteToken('convite-teste'), true);
+  assert.equal(isValidInviteToken('abc_123.~+/='), true);
+  assert.equal(isValidInviteToken(''), false);
+  assert.equal(isValidInviteToken('a b'), false);
+  assert.equal(isValidInviteToken('<script>'), false);
+  assert.equal(isValidInviteToken('x'.repeat(513)), false);
+  assert.equal(isValidInviteToken(parseInviteHash('#convite=!!!')), false);
+  assert.equal(isValidInviteToken(parseInviteHash('#convite=convite-teste')), true);
+  assert.equal(isValidInviteToken(parseInviteHash('#convite=')), false);
 });
