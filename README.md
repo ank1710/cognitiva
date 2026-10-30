@@ -91,6 +91,33 @@ Metacognição é tratada principalmente como **medida transversal**, comparando
 - Não inclua a chave `OPENAI_API_KEY` no código frontend. Se utilizar a API, configure-a somente no ambiente de servidor.
 - Respostas corretas e código de geração ficam visíveis no cliente: é adequado para um laboratório educacional, **não** para testes protegidos, certificação ou comparação oficial entre pessoas.
 
+## Piloto por convite
+
+A análise por IA é um **piloto fechado**: o modo local sem IA continua livre, mas `POST /api/analyze` exige um convite. Configure as variáveis a partir de `.env.example`.
+
+| Variável | Padrão | Efeito |
+| --- | --- | --- |
+| `PILOT_TOKENS` | vazio | convites separados por vírgula; vazio ⇒ `503 pilot-unconfigured` |
+| `PILOT_PER_TOKEN_PER_DAY` | `20` | teto diário por convite, no dia UTC |
+| `PILOT_GLOBAL_PER_DAY` | `100` | teto diário somando todos os convites |
+| `PILOT_PER_TOKEN_PER_MINUTE` | `4` | teto por minuto e por convite |
+| `PILOT_PRICE_INPUT_PER_MTOK` | `0.25` | preço de referência para estimar custo |
+| `PILOT_PRICE_OUTPUT_PER_MTOK` | `2.00` | idem para a saída |
+
+Envie o convite em `Authorization: Bearer <token>`; no servidor local, `x-pilot-token` também é aceito.
+
+| Situação | Resposta |
+| --- | --- |
+| sem `PILOT_TOKENS` | `503` `pilot-unconfigured` |
+| sem convite | `401` `invite-required` |
+| convite inválido | `403` `invite-invalid` |
+| limite atingido | `429` `rate-limit` com `Retry-After` |
+| convite válido e chave ausente | `503` de análise não configurada |
+
+O servidor registra **apenas metadados** por requisição de análise: data, status, duração, prefixo do hash do convite e estimativa de custo (heurística de 4 caracteres por token). Corpo, prompt, resposta e justificativas nunca vão para o log.
+
+Os contadores ficam **em memória**: cada processo do servidor — e cada instância serverless quente — tem seu próprio contador. Para operar com várias instâncias, substitua o limitador por um store compartilhado (Redis/KV) antes de abrir o piloto. `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy` e `X-Frame-Options` são aplicados a páginas e à API; a interface não usa script inline.
+
 ## Próximos passos
 
 Leia `ROADMAP.md` antes de construir novos recursos. **Prioridade imediata:** ampliar diversidade de *famílias estruturalmente distintas*, revisar cada gabarito, adicionar regras de acessibilidade e controle de exposição em múltiplos dispositivos; só depois pensar em CAT/TRI, IA para geração ao vivo e normas populacionais.
