@@ -237,3 +237,20 @@ test('transparência não cria região aria-live concorrente', () => {
   const block = html.slice(html.indexOf('id="aiDisclosure"'), html.indexOf('id="aiParticipantSections"'));
   assert.doesNotMatch(block, /aria-live/);
 });
+
+/* ------------------------------------------------- convite do piloto (T015b) */
+test('botão de análise começa desabilitado e aponta para o motivo legível', () => {
+  const tag = html.match(/<button[^>]*id="apiBtn"[^>]*>/)?.[0] || '';
+  assert.match(tag, /\bdisabled\b/);
+  assert.match(tag, /aria-describedby="inviteStatus"/);
+  assert.match(html, /id="inviteStatus"[^>]*role="status"[^>]*aria-live="polite"/);
+});
+
+test('texto do convite explica o piloto e mantém o fallback de copiar', () => {
+  assert.match(html, /A análise automática é um piloto por convite\./);
+  assert.match(html, /Copiar análise para ChatGPT continua disponível\./);
+});
+
+test('sem convite o status inicial deixa claro que a análise está desabilitada', () => {
+  assert.match(html, /Sem convite, a análise automática fica desabilitada\. O Copiar análise para ChatGPT continua ativo\./);
+});

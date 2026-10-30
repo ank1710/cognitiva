@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadCatalog, buildAnalysisView, buildParticipantView, evidenceLabel, modeLabel, CONSENT_TEXT_VERSION, PREVIEW_LABEL } from '../src/app.js';
+import { loadCatalog, buildAnalysisView, buildParticipantView, evidenceLabel, modeLabel, CONSENT_TEXT_VERSION, PREVIEW_LABEL, INVITE_STORAGE_KEY, parseInviteHash, readStoredInvite, storeInvite, clearStoredInvite, retryMessage } from '../src/app.js';
 
 const response = body => ({ ok: true, json: async () => body });
 
@@ -159,4 +159,54 @@ test('modelo determinístico aparece em linguagem simples', () => {
   const view = buildParticipantView({ rubricVersion: 'rubric-1.0.0', model: 'none', participant: base });
   assert.equal(view.model, 'none');
   assert.equal(view.modelLabel, 'não utilizado (análise determinística)');
+});
+
+const memoryStorage = () => {
+  const map = new Map();
+  return {
+    map,
+    getItem: key => (map.has(key) ? map.get(key) : null),
+    setItem: (key, value) => map.set(key, String(value)),
+    removeItem: key => map.delete(key)
+  };
+};
+
+test('convite é lido do fragmento e não da query string', () => {
+  assert.equal(parseInviteHash('#convite=abc123'), 'abc123');
+  assert.equal(parseInviteHash('#outro=1&convite=abc123'), 'abc123');
+  assert.equal(parseInviteHash('#convite=%20abc%20'), 'abc');
+  assert.equal(parseInviteHash('#convite='), null);
+  assert.equal(parseInviteHash(''), null);
+  assert.equal(parseInviteHash('#outro=abc'), null);
+  // A query string não é fragmento: o app nunca a lê para o convite.
+  assert.equal(parseInviteHash('?convite=abc123'), null);
+});
+
+test('convite fica em sessionStorage e sai no clear', () => {
+  const storage = memoryStorage();
+  assert.equal(readStoredInvite(storage), null);
+  assert.equal(storeInvite(storage, ' convite-1 '), true);
+  assert.equal(storage.map.get(INVITE_STORAGE_KEY), 'convite-1');
+  assert.equal(readStoredInvite(storage), 'convite-1');
+  clearStoredInvite(storage);
+  assert.equal(readStoredInvite(storage), null);
+  assert.equal(storage.map.has(INVITE_STORAGE_KEY), false);
+});
+
+test('storage bloqueado não derruba a leitura nem a escrita', () => {
+  const blocked = {
+    getItem() { throw new Error('bloqueado'); },
+    setItem() { throw new Error('bloqueado'); },
+    removeItem() { throw new Error('bloqueado'); }
+  };
+  assert.equal(readStoredInvite(blocked), null);
+  assert.equal(storeInvite(blocked, 'x'), false);
+  assert.doesNotThrow(() => clearStoredInvite(blocked));
+  assert.doesNotThrow(() => parseInviteHash(undefined));
+});
+
+test('mensagem de 429 informa a espera em segundos', () => {
+  assert.match(retryMessage(14), /Aguarde 14 s/);
+  assert.match(retryMessage(0), /em instantes/);
+  assert.match(retryMessage('3'), /Aguarde 3 s/);
 });

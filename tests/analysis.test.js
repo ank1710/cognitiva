@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { requestAnalysis, withoutReasoning, ANALYSIS_MESSAGES } from '../src/analysis.js';
 
-const fakeResponse = (status, body) => ({
+const fakeResponse = (status, body, headers = {}) => ({
   ok: status >= 200 && status < 300,
   status,
+  headers: { get: name => headers[String(name).toLowerCase()] ?? null },
   text: async () => (typeof body === 'string' ? body : JSON.stringify(body))
 });
 const report = { app: 'Cognitiva', responses: [{ id: 'x' }] };
+const TOKEN = 'convite-teste';
 const FINGERPRINT = `sha256:${'a'.repeat(64)}`;
 
 const envelope = (overrides = {}) => ({
@@ -41,7 +43,7 @@ const envelope = (overrides = {}) => ({
 });
 
 test('resposta 200 com envelope analysis-2 válido', async () => {
-  const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(200, envelope()) });
+  const r = await requestAnalysis(report, { token: TOKEN, fetchImpl: async () => fakeResponse(200, envelope()) });
   assert.equal(r.ok, true);
   assert.equal(r.analysis, 'Panorama ok.');
   assert.equal(r.rubricVersion, 'rubric-1.0.0');
@@ -63,7 +65,7 @@ test('schema desconhecido vira invalid-schema, não sucesso parcial', async () =
     envelope({ participant: undefined }),
     envelope({ participant: { audience: 'participant' } })
   ]) {
-    const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(200, body) });
+    const r = await requestAnalysis(report, { token: TOKEN, fetchImpl: async () => fakeResponse(200, body) });
     assert.equal(r.ok, false);
     assert.equal(r.code, 'invalid-schema');
     assert.equal(r.message, ANALYSIS_MESSAGES['invalid-schema']);
@@ -71,7 +73,7 @@ test('schema desconhecido vira invalid-schema, não sucesso parcial', async () =
 });
 
 test('409 do servidor vira stale-report com detalhe', async () => {
-  const r = await requestAnalysis(report, {
+  const r = await requestAnalysis(report, { token: TOKEN,
     fetchImpl: async () => fakeResponse(409, { error: 'Relatório mudou.', code: 'stale-report', fallback: 'copy-prompt' })
   });
   assert.equal(r.ok, false);
@@ -81,7 +83,7 @@ test('409 do servidor vira stale-report com detalhe', async () => {
 });
 
 test('400 do servidor vira consent-invalid', async () => {
-  const r = await requestAnalysis(report, {
+  const r = await requestAnalysis(report, { token: TOKEN,
     fetchImpl: async () => fakeResponse(400, { error: 'consentimento', code: 'consent-invalid', fallback: 'copy-prompt' })
   });
   assert.equal(r.ok, false);
@@ -90,7 +92,7 @@ test('400 do servidor vira consent-invalid', async () => {
 });
 
 test('422 com code invalid-schema preserva o detalhe da rubrica', async () => {
-  const r = await requestAnalysis(report, {
+  const r = await requestAnalysis(report, { token: TOKEN,
     fetchImpl: async () => fakeResponse(422, { error: 'rubrica', code: 'invalid-schema', detail: 'expressão proibida: QI' })
   });
   assert.equal(r.code, 'invalid-schema');
@@ -99,7 +101,7 @@ test('422 com code invalid-schema preserva o detalhe da rubrica', async () => {
 
 test('fingerprint esperado vai no corpo da requisição', async () => {
   let sent = null;
-  await requestAnalysis(report, {
+  await requestAnalysis(report, { token: TOKEN,
     expectedFingerprint: FINGERPRINT,
     fetchImpl: async (url, options) => {
       sent = JSON.parse(options.body);
@@ -111,7 +113,7 @@ test('fingerprint esperado vai no corpo da requisição', async () => {
 });
 
 test('405 em texto puro não gera erro de parsing', async () => {
-  const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(405, 'Método não permitido') });
+  const r = await requestAnalysis(report, { token: TOKEN, fetchImpl: async () => fakeResponse(405, 'Método não permitido') });
   assert.equal(r.ok, false);
   assert.equal(r.code, 'method');
   assert.equal(r.status, 405);
@@ -119,7 +121,7 @@ test('405 em texto puro não gera erro de parsing', async () => {
 });
 
 test('corpo não JSON com status de erro mantém mensagem útil', async () => {
-  const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(500, '<html>erro</html>') });
+  const r = await requestAnalysis(report, { token: TOKEN, fetchImpl: async () => fakeResponse(500, '<html>erro</html>') });
   assert.equal(r.ok, false);
   assert.equal(r.code, 'server-error');
   assert.match(r.message, /Tente de novo/);
@@ -127,21 +129,21 @@ test('corpo não JSON com status de erro mantém mensagem útil', async () => {
 
 test('503, 429, 413 e 400 têm mensagens específicas', async () => {
   for (const [status, code] of [[503, 'unconfigured'], [429, 'rate-limit'], [413, 'too-large'], [400, 'invalid-payload']]) {
-    const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(status, { error: 'x' }) });
+    const r = await requestAnalysis(report, { token: TOKEN, fetchImpl: async () => fakeResponse(status, { error: 'x' }) });
     assert.equal(r.code, code, `status ${status}`);
     assert.equal(r.message, ANALYSIS_MESSAGES[code]);
   }
 });
 
 test('falha de rede vira mensagem, sem exceção', async () => {
-  const r = await requestAnalysis(report, { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  const r = await requestAnalysis(report, { token: TOKEN, fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
   assert.equal(r.ok, false);
   assert.equal(r.code, 'network');
   assert.equal(r.message, ANALYSIS_MESSAGES.network);
 });
 
 test('requisição que estoura o tempo é cancelada', async () => {
-  const r = await requestAnalysis(report, {
+  const r = await requestAnalysis(report, { token: TOKEN,
     timeoutMs: 20,
     fetchImpl: (url, options) => new Promise((_, reject) => {
       options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
@@ -152,7 +154,7 @@ test('requisição que estoura o tempo é cancelada', async () => {
 });
 
 test('timeout continua valendo enquanto o corpo é lido', async () => {
-  const r = await requestAnalysis(report, {
+  const r = await requestAnalysis(report, { token: TOKEN,
     timeoutMs: 20,
     fetchImpl: () => Promise.resolve({
       ok: true,
@@ -166,15 +168,15 @@ test('timeout continua valendo enquanto o corpo é lido', async () => {
 });
 
 test('sem fetch ou com relatório inválido não tenta enviar', async () => {
-  const missing = await requestAnalysis(report, { fetchImpl: null });
+  const missing = await requestAnalysis(report, { token: TOKEN, fetchImpl: null });
   assert.equal(missing.code, 'unsupported');
-  const invalid = await requestAnalysis(null, { fetchImpl: async () => fakeResponse(200, envelope()) });
+  const invalid = await requestAnalysis(null, { token: TOKEN, fetchImpl: async () => fakeResponse(200, envelope()) });
   assert.equal(invalid.code, 'invalid-payload');
 });
 
 test('opt-in de justificativas viaja no corpo com a versão vigente', async () => {
   let sent = null;
-  await requestAnalysis(report, {
+  await requestAnalysis(report, { token: TOKEN,
     reasoningAuthorized: true,
     consentTextVersion: 'consent-1.0.0',
     fetchImpl: async (url, options) => {
@@ -192,7 +194,7 @@ test('sem opt-in o corpo declara reasoningAuthorized false e remove o texto livr
     responses: [{ id: 'x', reasoning: 'Meu nome é Fulano e estudo na escola X.' }]
   };
   let sent = null;
-  await requestAnalysis(withReasoning, {
+  await requestAnalysis(withReasoning, { token: TOKEN,
     fetchImpl: async (url, options) => {
       sent = JSON.parse(options.body);
       return fakeResponse(200, envelope());
@@ -215,7 +217,7 @@ test('withoutReasoning não altera o relatório original', () => {
 test('com opt-in o texto livre é enviado no corpo', async () => {
   const withReasoning = { ...report, responses: [{ id: 'x', reasoning: 'texto autorizado' }] };
   let sent = null;
-  await requestAnalysis(withReasoning, {
+  await requestAnalysis(withReasoning, { token: TOKEN,
     reasoningAuthorized: true,
     consentTextVersion: 'consent-1.0.0',
     fetchImpl: async (url, options) => {
@@ -224,4 +226,47 @@ test('com opt-in o texto livre é enviado no corpo', async () => {
     }
   });
   assert.match(JSON.stringify(sent), /texto autorizado/);
+});
+
+test('sem token não chama o servidor e devolve invite-required', async () => {
+  let called = false;
+  const r = await requestAnalysis(report, { fetchImpl: async () => { called = true; return fakeResponse(200, envelope()); } });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'invite-required');
+  assert.equal(called, false);
+});
+
+test('token vai só no header Authorization, nunca no corpo', async () => {
+  let sent = null;
+  const r = await requestAnalysis(report, { token: TOKEN, fetchImpl: async (url, options) => { sent = { url, options }; return fakeResponse(200, envelope()); } });
+  assert.equal(r.ok, true);
+  assert.equal(sent.options.headers.Authorization, `Bearer ${TOKEN}`);
+  assert.doesNotMatch(sent.options.body, new RegExp(TOKEN));
+  assert.doesNotMatch(JSON.stringify(r), new RegExp(TOKEN));
+});
+
+test('401 e 403 do convite viram invite-required e invite-invalid', async () => {
+  const missing = await requestAnalysis(report, { token: TOKEN, fetchImpl: async () => fakeResponse(401, { error: 'convite necessário', code: 'invite-required' }) });
+  assert.equal(missing.code, 'invite-required');
+  const invalid = await requestAnalysis(report, { token: TOKEN, fetchImpl: async () => fakeResponse(403, { error: 'convite inválido', code: 'invite-invalid' }) });
+  assert.equal(invalid.code, 'invite-invalid');
+  assert.equal(invalid.message, ANALYSIS_MESSAGES['invite-invalid']);
+});
+
+test('429 lê Retry-After em segundos', async () => {
+  const r = await requestAnalysis(report, {
+    token: TOKEN,
+    fetchImpl: async () => fakeResponse(429, { error: 'limite', code: 'rate-limit' }, { 'retry-after': '14' })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'rate-limit');
+  assert.equal(r.retryAfter, 14);
+});
+
+test('pilot-unconfigured vira unconfigured', async () => {
+  const r = await requestAnalysis(report, {
+    token: TOKEN,
+    fetchImpl: async () => fakeResponse(503, { error: 'piloto', code: 'pilot-unconfigured' })
+  });
+  assert.equal(r.code, 'unconfigured');
 });

@@ -16,19 +16,24 @@ export const ANALYSIS_MESSAGES = Object.freeze({
   'invalid-schema': 'A análise voltou em um formato que não passou na validação da rubrica. Nada foi perdido; use Copiar análise para ChatGPT.',
   'stale-report': 'O relatório mudou depois do envio, então a análise foi descartada. Gere a análise novamente a partir do relatório atual.',
   'consent-invalid': 'O consentimento para enviar justificativas não confere. Reabra o aviso, marque a autorização e tente de novo.',
+  'invite-required': 'A análise automática é um piloto por convite. Abra o link de convite para habilitar; o Copiar análise para ChatGPT continua disponível.',
+  'invite-invalid': 'Convite inválido ou expirado; abra o link de convite novamente.',
   'server-error': 'O serviço de análise não conseguiu processar a solicitação. Tente de novo mais tarde.',
   empty: 'A análise voltou vazia. Tente de novo ou use Copiar análise para ChatGPT.'
 });
 
-const failure = (code, status = null, detail = null) => ({
+const failure = (code, status = null, detail = null, extra = {}) => ({
   ok: false,
   status,
   code,
   message: ANALYSIS_MESSAGES[code] || ANALYSIS_MESSAGES['server-error'],
-  ...(detail ? { detail: String(detail).slice(0, 300) } : {})
+  ...(detail ? { detail: String(detail).slice(0, 300) } : {}),
+  ...extra
 });
 
 function codeForStatus(status) {
+  if (status === 401) return 'invite-required';
+  if (status === 403) return 'invite-invalid';
   if (status === 405) return 'method';
   if (status === 409) return 'stale-report';
   if (status === 422) return 'invalid-schema';
@@ -78,7 +83,15 @@ function schemaProblem(body) {
   return null;
 }
 
-export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, signal, expectedFingerprint = null, reasoningAuthorized = false, consentTextVersion = null } = {}) {
+const retryAfterSeconds = headers => {
+  const raw = headers && typeof headers.get === 'function' ? headers.get('retry-after') : null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.ceil(parsed) : null;
+};
+
+export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, signal, token = null, expectedFingerprint = null, reasoningAuthorized = false, consentTextVersion = null } = {}) {
+  // Sem convite não há chamada: o modo local continua e o token nunca é inventado.
+  if (typeof token !== 'string' || !token.trim()) return failure('invite-required');
   const doFetch = fetchImpl !== undefined ? fetchImpl : (typeof fetch === 'function' ? fetch : null);
   if (!doFetch) return failure('unsupported');
   if (!result || typeof result !== 'object') return failure('invalid-payload');
@@ -103,7 +116,7 @@ export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, si
     try {
       response = await doFetch('/api/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token.trim()}` },
         body: JSON.stringify({
           results: reasoningAuthorized === true ? result : withoutReasoning(result),
           reasoningAuthorized: reasoningAuthorized === true,
@@ -131,9 +144,12 @@ export async function requestAnalysis(result, { fetchImpl, timeoutMs = 45000, si
 
     if (!response?.ok) {
       const reported = body && typeof body === 'object' ? body.code : null;
-      const code = ['invalid-schema', 'stale-report', 'consent-invalid'].includes(reported) ? reported : codeForStatus(status);
+      const code = reported === 'pilot-unconfigured' ? 'unconfigured'
+        : ['invalid-schema', 'stale-report', 'consent-invalid', 'invite-required', 'invite-invalid'].includes(reported) ? reported
+          : codeForStatus(status);
       const detail = body && typeof body === 'object' ? body.detail || body.error || body.message : null;
-      return failure(code, status, detail || (raw ? raw.slice(0, 120) : null));
+      const retryAfter = status === 429 ? retryAfterSeconds(response.headers) : null;
+      return failure(code, status, detail || (raw ? raw.slice(0, 120) : null), retryAfter === null ? {} : { retryAfter });
     }
     const problem = schemaProblem(body);
     if (problem) return failure('invalid-schema', status || null, `schema: ${problem}`);
