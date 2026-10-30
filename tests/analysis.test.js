@@ -70,3 +70,45 @@ test('sem fetch ou com relatório inválido não tenta enviar', async () => {
   const invalid = await requestAnalysis(null, { fetchImpl: async () => fakeResponse(200, { analysis: 'x' }) });
   assert.equal(invalid.code, 'invalid-payload');
 });
+
+test('timeout continua valendo enquanto o corpo é lido', async () => {
+  const r = await requestAnalysis(report, {
+    timeoutMs: 20,
+    fetchImpl: () => Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => new Promise(() => { /* corpo travado: nunca resolve */ })
+    })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'timeout');
+  assert.equal(r.message, ANALYSIS_MESSAGES.timeout);
+});
+
+test('abortar durante a leitura do corpo resulta em timeout, não sucesso parcial', async () => {
+  const r = await requestAnalysis(report, {
+    timeoutMs: 20,
+    fetchImpl: (url, options) => Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => new Promise((_, reject) => {
+        options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+      })
+    })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'timeout');
+});
+
+test('corpo lento mas dentro do prazo é lido até o fim', async () => {
+  const r = await requestAnalysis(report, {
+    timeoutMs: 500,
+    fetchImpl: () => Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => new Promise(resolve => setTimeout(() => resolve(JSON.stringify({ analysis: 'ok' })), 20))
+    })
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.analysis, 'ok');
+});

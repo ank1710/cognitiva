@@ -13,6 +13,22 @@ const MIME = {
   '.svg': 'image/svg+xml'
 };
 const MAX_BODY_BYTES = 400000;
+const DEFAULT_HOST = '127.0.0.1';
+const ALLOWED_PREFIXES = ['/src/', '/catalog/'];
+
+/** Host de escuta: loopback por padrão; `HOST` permite expor de propósito. */
+export function resolveHost(env = process.env) {
+  const value = typeof env.HOST === 'string' ? env.HOST.trim() : '';
+  return value || DEFAULT_HOST;
+}
+
+/** Só a interface e seus assets. Qualquer segmento com ponto inicial
+ * (dotfile/dotdir, inclusive `.git` e `.env`) fica de fora. */
+export function isAllowedPath(pathname) {
+  if (pathname === '/' || pathname === '/index.html') return true;
+  if (pathname.split('/').some(segment => segment.startsWith('.'))) return false;
+  return ALLOWED_PREFIXES.some(prefix => pathname.startsWith(prefix) && pathname.length > prefix.length);
+}
 
 function sendJson(res, status, payload, headers = {}) {
   const body = JSON.stringify(payload);
@@ -67,13 +83,14 @@ export function createServer() {
       res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, HEAD' });
       return res.end('Método não permitido');
     }
+    if (!isAllowedPath(pathname)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end('Não encontrado');
+    }
     let path;
     try {
       path = resolve(ROOT, '.' + (pathname === '/' ? '/index.html' : pathname));
       if (path !== ROOT && !path.startsWith(ROOT + sep)) throw Error('path');
-      if (path.includes(`${sep}api${sep}`)) {
-        return sendJson(res, 404, { error: 'Análise via API só está disponível quando publicada com backend seguro.' });
-      }
       const info = await stat(path);
       if (!info.isFile()) throw Error('not a file');
       const bytes = await readFile(path);
@@ -88,5 +105,9 @@ export function createServer() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const PORT = Number(process.env.PORT || 3000);
-  createServer().listen(PORT, () => console.log(`Cognitiva 2.0 disponível em http://localhost:${PORT}`));
+  const HOST = resolveHost();
+  createServer().listen(PORT, HOST, () => {
+    const shown = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+    console.log(`Cognitiva 2.0 escutando em ${HOST}:${PORT} (abra http://${shown}:${PORT})`);
+  });
 }
