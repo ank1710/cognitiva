@@ -168,6 +168,54 @@ export function buildAnalysisView(outcome) {
 export const CONSENT_TEXT_VERSION = 'consent-1.0.0';
 export const PREVIEW_LABEL = 'Prévia interna — não é devolutiva oficial';
 
+/* ---------------------------------------------------------------------------
+ * Convite do piloto
+ * O token chega no fragmento (#convite=...) e nunca na query string: fragmento
+ * não é enviado ao servidor nem aparece em referer/log de acesso. Fica só em
+ * sessionStorage, some ao fechar a aba e nunca entra no relatório ou no prompt.
+ * ------------------------------------------------------------------------- */
+export const INVITE_STORAGE_KEY = 'cognitiva_v2_invite';
+
+export function parseInviteHash(hash) {
+  const value = String(hash ?? '');
+  if (!value.startsWith('#')) return null;
+  const token = new URLSearchParams(value.slice(1)).get('convite');
+  return token && token.trim() ? token.trim() : null;
+}
+
+export function readStoredInvite(storage = globalThis.sessionStorage) {
+  if (!storage) return null;
+  try {
+    const token = storage.getItem(INVITE_STORAGE_KEY);
+    return token && token.trim() ? token.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeInvite(storage, token) {
+  if (!storage || typeof token !== 'string' || !token.trim()) return false;
+  try {
+    storage.setItem(INVITE_STORAGE_KEY, token.trim());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearStoredInvite(storage = globalThis.sessionStorage) {
+  if (!storage) return;
+  try { storage.removeItem(INVITE_STORAGE_KEY); } catch { /* sessão bloqueada */ }
+}
+
+/** Mensagem de espera do 429, sem interpolar nada além dos segundos. */
+export function retryMessage(seconds) {
+  const wait = Math.max(0, Math.ceil(Number(seconds) || 0));
+  return wait > 0
+    ? `Limite de uso atingido. Aguarde ${wait} s e tente de novo.`
+    : 'Limite de uso atingido. Tente de novo em instantes.';
+}
+
 /** Converte o participant devolvido pelo servidor em dados de exibição.
  * F3 não está implementada: a UI nunca trata a saída como devolutiva oficial,
  * mesmo que o campo venha com outro releaseStatus. */
@@ -235,6 +283,13 @@ export function initApp() {
   const esc = escapeHtml;
   let tier = 'screening', session = store.readSession(), currentView = 'home', catalog = [];
   let lastAnalysis = null;
+  const linkedInvite = parseInviteHash(window.location.hash);
+  if (linkedInvite) {
+    storeInvite(window.sessionStorage, linkedInvite);
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* histórico indisponível */ }
+  }
+  let invite = readStoredInvite(window.sessionStorage);
+  let retryTimer = null;
   const catalogReady = loadCatalog();
   catalogReady.then(list => { catalog = list; });
   function notice(message) {const el = $('storageNotice'); if (!el) return; el.textContent = message || ''; el.classList.toggle('hide', !message);}
@@ -417,8 +472,53 @@ export function initApp() {
     const hasParticipant = renderParticipant(outcome);
     (hasParticipant ? $('aiParticipant') : $('aiReport')).focus({preventScroll: true});
   }
+  function updateInviteUi() {
+    const btn = $('apiBtn');
+    const hasInvite = Boolean(invite);
+    if (!hasInvite) {
+      btn.disabled = true;
+      $('inviteStatus').textContent = 'A análise automática é um piloto por convite. Abra o link de convite para habilitar; o Copiar análise para ChatGPT continua disponível.';
+      $('apiStatus').textContent = 'Sem convite, a análise automática fica desabilitada. O Copiar análise para ChatGPT continua ativo.';
+    } else {
+      btn.disabled = false;
+      $('inviteStatus').textContent = 'Convite ativo nesta sessão.';
+      $('apiStatus').textContent = 'A análise automática está disponível com o convite desta sessão.';
+    }
+  }
+
+  /** Contagem regressiva do 429 baseada em relógio; reabilita no fim. */
+  function startRetry(seconds) {
+    if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+    const total = Math.max(0, Math.ceil(Number(seconds) || 0));
+    const btn = $('apiBtn');
+    if (!total) { updateInviteUi(); return; }
+    const deadline = Date.now() + total * 1000;
+    const tick = () => {
+      // Usa o relógio, não a quantidade de ticks: abas em segundo plano
+      // podem ter timers atrasados, mas o prazo real permanece o mesmo.
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      if (remaining <= 0) {
+        clearInterval(retryTimer); retryTimer = null;
+        $('apiStatus').textContent = invite
+          ? 'Você já pode tentar a análise novamente.'
+          : 'Sem convite, a análise automática continua desabilitada.';
+        btn.disabled = !invite;
+        return;
+      }
+      $('apiStatus').textContent = retryMessage(remaining);
+      btn.disabled = true;
+    };
+    tick();
+    retryTimer = setInterval(tick, 1000);
+  }
+
   async function analyze() {
     const btn = $('apiBtn');
+    if (!invite) {
+      $('apiStatus').textContent = 'Abra o link de convite para usar a análise automática. O Copiar análise para ChatGPT continua disponível.';
+      btn.disabled = true;
+      return;
+    }
     const authorized = Boolean($('reasoningConsent')?.checked);
     btn.disabled = true;
     $('apiStatus').textContent = authorized
@@ -426,20 +526,30 @@ export function initApp() {
       : 'Solicitando análise sem enviar seus comentários. Nenhum dado é enviado sem esta ação.';
     // O fingerprint é calculado no servidor (bloco E + node:crypto). O navegador
     // não replica essa lógica; por isso expectedFingerprint fica nulo e o valor
-    // devolvido é exibido no laudo, não reenviado.
+    // devolvido é exibido no laudo, não reenviado. O convite vai só no header.
     const outcome = await requestAnalysis(result(), {
+      token: invite,
       reasoningAuthorized: authorized,
       consentTextVersion: authorized ? CONSENT_TEXT_VERSION : null
     });
     if (outcome.ok) {
       renderAnalysis(outcome);
       $('apiStatus').textContent = outcome.message;
-    } else {
-      $('apiStatus').textContent = outcome.code === 'consent-invalid'
-        ? `${outcome.message} Você pode desmarcar a autorização e tentar de novo; o resultado continua salvo.`
-        : outcome.message;
+      btn.disabled = false;
+      return;
     }
-    btn.disabled = false;
+    if (outcome.code === 'consent-invalid') {
+      $('apiStatus').textContent = `${outcome.message} Você pode desmarcar a autorização e tentar de novo; o resultado continua salvo.`;
+      btn.disabled = false;
+    } else if (outcome.code === 'invite-required' || outcome.code === 'invite-invalid') {
+      $('apiStatus').textContent = 'Convite inválido ou expirado; abra o link de convite novamente. O resultado continua salvo.';
+      btn.disabled = false;
+    } else if (outcome.code === 'rate-limit') {
+      startRetry(outcome.retryAfter);
+    } else {
+      $('apiStatus').textContent = outcome.message;
+      btn.disabled = false;
+    }
   }
   $('homeLink').onclick = e => {e.preventDefault(); toHome();};
   $('startBtn').onclick = () => start(true);
@@ -476,12 +586,17 @@ export function initApp() {
   $('againBtn').onclick = () => {session = null; store.clearSession(); toHome();};
   $('privacyBtn').onclick = () => alert('Os resultados e as questões vistas ficam neste navegador (localStorage). Nenhum resultado é enviado automaticamente. A análise via API só envia dados quando você confirma pelo botão. Para remover dados, use Apagar meus dados.');
   $('deleteBtn').onclick = () => {
-    if (!confirm('Apagar histórico e avaliação local deste navegador?')) return;
-    store.clearAll(); session = null;
+    if (!confirm('Apagar histórico, avaliação local e convite desta sessão?')) return;
+    store.clearAll();
+    clearStoredInvite(window.sessionStorage);
+    invite = null;
+    session = null;
     renderHome(); show('home');
-    notice('Histórico e avaliação local apagados deste navegador.');
+    updateInviteUi();
+    notice('Histórico, avaliação local e convite desta sessão apagados deste navegador.');
     focusHeading('storageNotice');
   };
+  updateInviteUi();
   renderHome();
   if (session?.finishedAt) {renderResults(); show('result');}
   reportStorageIssues();
