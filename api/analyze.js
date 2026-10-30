@@ -12,7 +12,8 @@ export default async function handler(req, res) {
   }
   const { status, body } = await analyzeResults(req.body, {
     apiKey: process.env.OPENAI_API_KEY,
-    model: process.env.OPENAI_MODEL || 'gpt-5-mini'
+    model: process.env.OPENAI_MODEL || 'gpt-5-mini',
+    expectedFingerprint: req.body?.dataFingerprint
   });
   res.setHeader('Cache-Control', 'no-store');
   return res.status(status).json(body);

@@ -90,3 +90,22 @@ test('host padrão é loopback e HOST explícito é respeitado', () => {
   assert.equal(resolveHost({ HOST: '   ' }), '127.0.0.1');
   assert.equal(resolveHost({ HOST: '0.0.0.0' }), '0.0.0.0');
 });
+
+test('POST com fingerprint desatualizado devolve 409 stale-report', async () => {
+  process.env.OPENAI_API_KEY = 'sk-teste-local';
+  try {
+    await withServer(async base => {
+      const res = await fetch(`${base}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results: results20, dataFingerprint: 'sha256:desatualizado' })
+      });
+      assert.equal(res.status, 409);
+      const body = await res.json();
+      assert.equal(body.code, 'stale-report');
+      assert.equal(body.fallback, 'copy-prompt');
+    });
+  } finally {
+    delete process.env.OPENAI_API_KEY;
+  }
+});

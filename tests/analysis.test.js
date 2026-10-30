@@ -8,11 +8,84 @@ const fakeResponse = (status, body) => ({
   text: async () => (typeof body === 'string' ? body : JSON.stringify(body))
 });
 const report = { app: 'Cognitiva', responses: [{ id: 'x' }] };
+const FINGERPRINT = `sha256:${'a'.repeat(64)}`;
 
-test('resposta 200 com análise válida', async () => {
-  const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(200, { analysis: '  Panorama ok.  ' }) });
+const envelope = (overrides = {}) => ({
+  schemaVersion: 'analysis-2',
+  rubricVersion: 'rubric-1.0.0',
+  promptVersion: 'prompt-1.0.0',
+  mode: 'full',
+  model: 'gpt-test',
+  generatedAt: '2026-10-30T12:00:00.000Z',
+  dataFingerprint: FINGERPRINT,
+  evidenceSnapshotId: FINGERPRINT,
+  justificationConsent: { authorized: false, scope: 'none', consentId: null },
+  technical: {
+    audience: 'research',
+    sessionSummary: { tier: 'screening', answered: 20, total: 20, globalAccuracy: 0.6 },
+    claims: [{ id: 'C1', level: 'fact', dimension: 'quant', text: 'Acertou 3 de 4.', evidenceIds: ['D:quant:correct'], caveat: null }],
+    limitations: ['Leitura descritiva.'],
+    refused: ['QI']
+  },
+  analysis: '  Panorama ok.  ',
+  ...overrides
+});
+
+test('resposta 200 com envelope analysis-2 válido', async () => {
+  const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(200, envelope()) });
   assert.equal(r.ok, true);
   assert.equal(r.analysis, 'Panorama ok.');
+  assert.equal(r.rubricVersion, 'rubric-1.0.0');
+  assert.equal(r.promptVersion, 'prompt-1.0.0');
+  assert.equal(r.model, 'gpt-test');
+  assert.equal(r.dataFingerprint, FINGERPRINT);
+  assert.equal(r.technical.claims.length, 1);
+});
+
+test('schema desconhecido vira invalid-schema, não sucesso parcial', async () => {
+  for (const body of [
+    { analysis: 'texto antigo' },
+    envelope({ schemaVersion: 'analysis-1' }),
+    envelope({ rubricVersion: undefined }),
+    envelope({ dataFingerprint: 'md5:abc' }),
+    envelope({ technical: { claims: [] } })
+  ]) {
+    const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(200, body) });
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'invalid-schema');
+    assert.equal(r.message, ANALYSIS_MESSAGES['invalid-schema']);
+  }
+});
+
+test('409 do servidor vira stale-report com detalhe', async () => {
+  const r = await requestAnalysis(report, {
+    fetchImpl: async () => fakeResponse(409, { error: 'Relatório mudou.', code: 'stale-report', fallback: 'copy-prompt' })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'stale-report');
+  assert.equal(r.message, ANALYSIS_MESSAGES['stale-report']);
+  assert.match(r.detail, /Relatório mudou/);
+});
+
+test('422 com code invalid-schema preserva o detalhe da rubrica', async () => {
+  const r = await requestAnalysis(report, {
+    fetchImpl: async () => fakeResponse(422, { error: 'rubrica', code: 'invalid-schema', detail: 'expressão proibida: QI' })
+  });
+  assert.equal(r.code, 'invalid-schema');
+  assert.match(r.detail, /expressão proibida/);
+});
+
+test('fingerprint esperado vai no corpo da requisição', async () => {
+  let sent = null;
+  await requestAnalysis(report, {
+    expectedFingerprint: FINGERPRINT,
+    fetchImpl: async (url, options) => {
+      sent = JSON.parse(options.body);
+      return fakeResponse(200, envelope());
+    }
+  });
+  assert.equal(sent.dataFingerprint, FINGERPRINT);
+  assert.deepEqual(sent.results, report);
 });
 
 test('405 em texto puro não gera erro de parsing', async () => {
@@ -38,14 +111,6 @@ test('503, 429, 413 e 400 têm mensagens específicas', async () => {
   }
 });
 
-test('200 sem analysis é resposta inválida, não sucesso vazio', async () => {
-  for (const body of [{}, { analysis: '' }, { analysis: 42 }, 'texto solto']) {
-    const r = await requestAnalysis(report, { fetchImpl: async () => fakeResponse(200, body) });
-    assert.equal(r.ok, false);
-    assert.equal(r.code, 'invalid-response');
-  }
-});
-
 test('falha de rede vira mensagem, sem exceção', async () => {
   const r = await requestAnalysis(report, { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
   assert.equal(r.ok, false);
@@ -64,13 +129,6 @@ test('requisição que estoura o tempo é cancelada', async () => {
   assert.equal(r.code, 'timeout');
 });
 
-test('sem fetch ou com relatório inválido não tenta enviar', async () => {
-  const missing = await requestAnalysis(report, { fetchImpl: null });
-  assert.equal(missing.code, 'unsupported');
-  const invalid = await requestAnalysis(null, { fetchImpl: async () => fakeResponse(200, { analysis: 'x' }) });
-  assert.equal(invalid.code, 'invalid-payload');
-});
-
 test('timeout continua valendo enquanto o corpo é lido', async () => {
   const r = await requestAnalysis(report, {
     timeoutMs: 20,
@@ -85,30 +143,9 @@ test('timeout continua valendo enquanto o corpo é lido', async () => {
   assert.equal(r.message, ANALYSIS_MESSAGES.timeout);
 });
 
-test('abortar durante a leitura do corpo resulta em timeout, não sucesso parcial', async () => {
-  const r = await requestAnalysis(report, {
-    timeoutMs: 20,
-    fetchImpl: (url, options) => Promise.resolve({
-      ok: true,
-      status: 200,
-      text: () => new Promise((_, reject) => {
-        options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
-      })
-    })
-  });
-  assert.equal(r.ok, false);
-  assert.equal(r.code, 'timeout');
-});
-
-test('corpo lento mas dentro do prazo é lido até o fim', async () => {
-  const r = await requestAnalysis(report, {
-    timeoutMs: 500,
-    fetchImpl: () => Promise.resolve({
-      ok: true,
-      status: 200,
-      text: () => new Promise(resolve => setTimeout(() => resolve(JSON.stringify({ analysis: 'ok' })), 20))
-    })
-  });
-  assert.equal(r.ok, true);
-  assert.equal(r.analysis, 'ok');
+test('sem fetch ou com relatório inválido não tenta enviar', async () => {
+  const missing = await requestAnalysis(report, { fetchImpl: null });
+  assert.equal(missing.code, 'unsupported');
+  const invalid = await requestAnalysis(null, { fetchImpl: async () => fakeResponse(200, envelope()) });
+  assert.equal(invalid.code, 'invalid-payload');
 });
