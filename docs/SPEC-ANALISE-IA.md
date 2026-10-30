@@ -5,7 +5,9 @@
 | Status | `NEEDS_INPUT` — aguarda a decisão de produto da seção 2 |
 | Versão da spec | **v1** |
 | Data | 30/10/2026 |
-| Repositório | `/Users/leonardozanattaribeiro/cognitiva-v2 2`, commit `f3b76db` |
+| Repositório | `/Users/leonardozanattaribeiro/cognitiva-v2 2` |
+| Base do código lido | commit `f3b76db` |
+| Observação de git | este arquivo entrou no commit `82c12b8` por um processo concorrente que commitou `docs/`; nenhum código foi alterado e esta spec não executou commit |
 | Escopo permitido | apenas este documento. Nenhum código, teste ou configuração foi alterado |
 | Autor | Spec Writer (spec de produto, sem implementação) |
 
