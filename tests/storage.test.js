@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildForm } from '../src/engine.js';
-import { createStore, KEYS, STORAGE_VERSION, sanitizeHistory, sanitizeExposure } from '../src/storage.js';
+import { createStore, KEYS, STORAGE_VERSION, isolatedKey, sanitizeHistory, sanitizeExposure } from '../src/storage.js';
 
-function fakeStorage(initial = {}, { failWrite = false, failRead = false } = {}) {
+function fakeStorage(initial = {}, { failWrite = false, failRead = false, failRemove = false } = {}) {
   const map = new Map(Object.entries(initial));
   return {
     map,
@@ -12,7 +12,7 @@ function fakeStorage(initial = {}, { failWrite = false, failRead = false } = {})
       if (failWrite) { const error = new Error('cota cheia'); error.name = 'QuotaExceededError'; throw error; }
       map.set(key, String(value));
     },
-    removeItem(key) { map.delete(key); }
+    removeItem(key) { if (failRemove) throw new Error('armazenamento bloqueado'); map.delete(key); }
   };
 }
 
@@ -119,4 +119,63 @@ test('apagar dados remove sessão, histórico e exposição', () => {
   store.saveExposure(['a']);
   store.clearAll();
   assert.equal(storage.map.size, 0);
+});
+
+test('clearAll apaga a cópia isolada de sessão corrompida (R1)', () => {
+  const storage = fakeStorage({ [KEYS.session]: '{corrompido' });
+  const store = createStore(storage);
+  assert.equal(store.readSession(), null);
+  assert.equal(storage.map.has(isolatedKey(KEYS.session)), true);
+  store.clearAll();
+  assert.equal(storage.map.has(isolatedKey(KEYS.session)), false);
+  assert.equal(storage.map.size, 0);
+});
+
+test('clearAll apaga isolados de histórico e exposição', () => {
+  const storage = fakeStorage({
+    [KEYS.history]: 'não é lista',
+    [KEYS.exposure]: '{"quebrado":'
+  });
+  const store = createStore(storage);
+  store.readHistory();
+  store.readExposure();
+  assert.equal(storage.map.has(isolatedKey(KEYS.history)), true);
+  assert.equal(storage.map.has(isolatedKey(KEYS.exposure)), true);
+  store.clearAll();
+  assert.equal(storage.map.has(isolatedKey(KEYS.history)), false);
+  assert.equal(storage.map.has(isolatedKey(KEYS.exposure)), false);
+});
+
+test('clearAll preserva chaves de terceiros', () => {
+  const storage = fakeStorage({ outra_app: 'config', [KEYS.session]: '{corrompido' });
+  const store = createStore(storage);
+  store.readSession();
+  store.clearAll();
+  assert.equal(storage.map.get('outra_app'), 'config');
+  assert.equal(storage.map.size, 1);
+});
+
+test('purgeIsolated pode ser chamado sozinho e informa o que removeu', () => {
+  const storage = fakeStorage({
+    [isolatedKey(KEYS.session)]: 'x',
+    [isolatedKey(KEYS.history)]: 'y',
+    outra_app__isolated: 'z'
+  });
+  const store = createStore(storage);
+  assert.deepEqual(store.purgeIsolated([KEYS.session]), [isolatedKey(KEYS.session)]);
+  assert.equal(storage.map.has(isolatedKey(KEYS.history)), true);
+  assert.equal(storage.map.get('outra_app__isolated'), 'z');
+});
+
+test('clearAll não lança quando o storage bloqueia removeItem', () => {
+  const storage = fakeStorage({ [KEYS.session]: 'x', [isolatedKey(KEYS.session)]: 'y' }, { failRemove: true });
+  const store = createStore(storage);
+  assert.doesNotThrow(() => store.clearAll());
+  assert.deepEqual(store.clearAll(), []);
+});
+
+test('clearAll sem storage disponível não lança', () => {
+  const store = createStore(null);
+  assert.doesNotThrow(() => store.clearAll());
+  assert.deepEqual(store.clearAll(), []);
 });
